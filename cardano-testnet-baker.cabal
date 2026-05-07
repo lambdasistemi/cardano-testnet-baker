@@ -85,10 +85,12 @@ test-suite unit-tests
   main-is:          Spec.hs
   other-modules:
     Cardano.Testnet.Baker.DeterminismSpec
+    Cardano.Testnet.Baker.MetadataSpec
     Cardano.Testnet.Baker.ScenarioSpec
     Cardano.Testnet.Baker.VersionSpec
 
   build-depends:
+    , aeson                 >=2.2 && <2.3
     , base                  >=4.18 && <5
     , bytestring            >=0.12 && <0.13
     , cardano-testnet-baker
