@@ -4,8 +4,20 @@
 let
   flakePkgs = project.flake { };
   baker = flakePkgs.packages."cardano-testnet-baker:exe:cardano-testnet-baker";
+  library =
+    flakePkgs.packages."cardano-testnet-baker:lib:cardano-testnet-baker";
 in {
   unit-tests = flakePkgs.packages."cardano-testnet-baker:test:unit-tests";
+  haddock = library.haddock;
+
+  cabal-check = pkgs.runCommand "cabal-check" {
+    nativeBuildInputs = [ pkgs.cabal-install ];
+    src = ../.;
+  } ''
+    cd "$src"
+    cabal check
+    touch "$out"
+  '';
 
   scenario-schema = pkgs.runCommand "scenario-schema-validation" {
     nativeBuildInputs = [ pkgs.check-jsonschema ];

@@ -54,6 +54,8 @@ build-gate:
     nix build --quiet \
         .#default \
         .#unit-tests \
+        .#checks.x86_64-linux.cabal-check \
+        .#checks.x86_64-linux.haddock \
         .#checks.x86_64-linux.scenario-schema \
         .#checks.x86_64-linux.example-bake-determinism \
         .#devShells.x86_64-linux.default.inputDerivation
@@ -119,3 +121,7 @@ CI:
     just hlint
     just validate-scenarios
     nix run .#unit-tests --quiet
+    rm -rf tmp/ci-acceptance
+    just bake-examples tmp/ci-acceptance/bakes
+    just acceptance-local-fast tmp/ci-acceptance/bakes/local-fast
+    just acceptance-normal tmp/ci-acceptance/bakes/normal

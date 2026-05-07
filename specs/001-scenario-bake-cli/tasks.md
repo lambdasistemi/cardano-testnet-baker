@@ -114,11 +114,11 @@
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T051 Update `README.md` with schema validation, bake, determinism, and compose acceptance commands
-- [ ] T052 Add `cabal check` and Haddock verification coverage to `just CI` or equivalent Nix checks in `justfile`
-- [ ] T053 Run `nix develop --quiet -c just format` from repository root `.`
-- [ ] T054 Run `nix develop --quiet -c just CI` from repository root `.`
-- [ ] T055 Record final verification evidence and open implementation PR notes in `specs/001-scenario-bake-cli/quickstart.md`
+- [x] T051 Update `README.md` with schema validation, bake, determinism, and compose acceptance commands
+- [x] T052 Add `cabal check` and Haddock verification coverage to `just CI` or equivalent Nix checks in `justfile`
+- [x] T053 Run `nix develop --quiet -c just format` from repository root `.`
+- [x] T054 Run `nix develop --quiet -c just CI` from repository root `.`
+- [x] T055 Record final verification evidence and open implementation PR notes in `specs/001-scenario-bake-cli/quickstart.md`
 
 ## Dependencies & Execution Order
 
