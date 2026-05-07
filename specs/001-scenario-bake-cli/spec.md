@@ -1,8 +1,8 @@
 # Feature Specification: Scenario JSON Schema and Bake CLI MVP
 
-**Feature Branch**: `001-scenario-bake-cli`  
-**Created**: 2026-05-07  
-**Status**: Draft  
+**Feature Branch**: `001-scenario-bake-cli`
+**Created**: 2026-05-07
+**Status**: Draft
 **Input**: User description: "Scenario JSON schema and bake-from-scenario CLI MVP"
 
 ## User Scenarios & Testing *(mandatory)*
@@ -100,7 +100,7 @@ assets mounted as its genesis and key inputs.
   funding, era parameters, or metadata.
 - A scenario attempts to bake `systemStart` as a run-specific value.
 - A scenario requests ChainDB synthesis, Amaru bundle production, OCI image
-  output, native binary packaging, MkDocs generation, or CHaP wiring.
+  output, native binary packaging, or MkDocs generation.
 - Two distinct pool, faucet, or UTxO key labels collide after normalization.
 - Baking is interrupted before all artifacts are written.
 - The node smoke test cannot start because the generated genesis files, pool
@@ -110,7 +110,7 @@ assets mounted as its genesis and key inputs.
 
 ### Functional Requirements
 
-- **FR-001**: System MUST define an MVP scenario JSON schema covering all
+- **FR-001**: System MUST publish a versioned MVP scenario JSON Schema covering all
   inputs required to bake genesis files, pool keys, faucet or UTxO keys, era
   parameters, faucet funding, deterministic key derivation, and artifact
   metadata.
@@ -138,16 +138,16 @@ assets mounted as its genesis and key inputs.
 - **FR-010**: System MUST reject invalid, incomplete, unsupported, or
   out-of-scope scenarios with actionable messages and without leaving a
   completed-looking partial artifact set.
-- **FR-011**: System MUST include automated validation that bakes both example
-  scenarios twice and fails when outputs from the two runs are not
-  byte-identical.
+- **FR-011**: System MUST include automated validation that checks both example
+  scenarios against the published JSON Schema, bakes both scenarios twice, and
+  fails when outputs from the two runs are not byte-identical.
 - **FR-012**: System MUST include a Docker Compose node smoke test that mounts
   baked assets for each committed example scenario and fails when the node
   rejects the generated genesis, configuration, or required key material during
   startup.
 - **FR-013**: System MUST keep ChainDB synthesis, Amaru bundle production, OCI
-  image build or publication, native binary distribution, MkDocs work, and
-  CHaP wiring outside this feature's completed scope.
+  image build or publication, native binary distribution, and MkDocs work
+  outside this feature's completed scope.
 
 ### Key Entities *(include if feature involves data)*
 
