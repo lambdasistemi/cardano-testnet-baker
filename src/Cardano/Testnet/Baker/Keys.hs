@@ -11,6 +11,7 @@ module Cardano.Testnet.Baker.Keys
     , PoolKeyArtifacts (..)
     , deriveFaucetKeyArtifacts
     , derivePoolKeyArtifacts
+    , faucetPaymentAddressHex
     ) where
 
 import Cardano.Api qualified as Api
@@ -21,12 +22,14 @@ import Cardano.Testnet.Baker.Determinism
     )
 import Cardano.Testnet.Baker.Scenario
     ( FaucetDeclaration (..)
+    , Network (..)
     , PoolDeclaration (..)
     )
 import Cardano.Testnet.Baker.TextEnvelope (textEnvelopeBytes)
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text (Text)
+import Data.Text qualified as Text
 
 -- | Deterministic text-envelope key material for one pool.
 data PoolKeyArtifacts = PoolKeyArtifacts
@@ -108,6 +111,25 @@ deriveFaucetKeyArtifacts scenarioSeed faucet =
             (faucetPaymentKeyLabel faucet)
             scenarioSeed
 
+-- | Hex-encoded Shelley payment address funded by the Shelley genesis file.
+faucetPaymentAddressHex
+    :: ByteString -> Network -> FaucetDeclaration -> Text
+faucetPaymentAddressHex scenarioSeed network faucet =
+    Api.serialiseToRawBytesHexText $
+        Api.makeShelleyAddress
+            (toApiNetworkId network)
+            (Api.PaymentCredentialByKey paymentKeyHash)
+            Api.NoStakeAddress
+  where
+    paymentSigning =
+        deriveSigningKey
+            Api.AsPaymentKey
+            FaucetPaymentKey
+            (faucetPaymentKeyLabel faucet)
+            scenarioSeed
+    paymentKeyHash =
+        Api.verificationKeyHash (Api.getVerificationKey paymentSigning)
+
 deriveSigningKey
     :: (Api.Key keyrole)
     => Api.AsType keyrole
@@ -123,3 +145,10 @@ deriveSigningKey asType role label scenarioSeed =
                 role
                 label
                 (fromIntegral (Api.deterministicSigningKeySeedSize asType))
+
+toApiNetworkId :: Network -> Api.NetworkId
+toApiNetworkId network =
+    case Text.toCaseFold (networkId network) of
+        "mainnet" -> Api.Mainnet
+        _ ->
+            Api.Testnet . Api.NetworkMagic . fromIntegral $ networkMagic network

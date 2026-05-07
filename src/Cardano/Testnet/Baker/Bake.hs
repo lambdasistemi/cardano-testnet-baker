@@ -14,6 +14,7 @@ module Cardano.Testnet.Baker.Bake
     , bakeScenario
     ) where
 
+import Cardano.Testnet.Baker.Genesis (genesisArtifactBytes)
 import Cardano.Testnet.Baker.Keys
     ( FaucetKeyArtifacts (..)
     , PoolKeyArtifacts (..)
@@ -154,10 +155,11 @@ writeStagedOutput :: BakeRequest -> FilePath -> IO ()
 writeStagedOutput request stageDir = do
     let scenario = bakeRequestScenario request
         artifactPaths = requiredArtifactPaths scenario
-        keyArtifacts = keyArtifactBytes scenario
+        generatedArtifacts =
+            genesisArtifactBytes scenario <> keyArtifactBytes scenario
     createDirectoryIfMissing True stageDir
     for_ artifactPaths $ \relativePath ->
-        writeArtifact stageDir scenario keyArtifacts relativePath
+        writeArtifact stageDir scenario generatedArtifacts relativePath
     artifactDigests <- traverse (digestArtifact stageDir) artifactPaths
     LBS.writeFile
         (stageDir </> "metadata.json")

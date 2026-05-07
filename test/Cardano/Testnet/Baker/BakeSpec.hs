@@ -20,6 +20,13 @@ import Cardano.Testnet.Baker.Scenario
     )
 import Control.Exception (finally)
 import Control.Monad (when)
+import Data.Aeson
+    ( FromJSON (..)
+    , eitherDecode
+    , withObject
+    , (.:)
+    )
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
@@ -54,6 +61,19 @@ spec = describe "bake output layout" $ do
             for_ requiredPaths $ \relativePath ->
                 doesPathExist (outputDir </> relativePath)
                     `shouldReturn` True
+
+    it "writes faucet funding to Shelley initialFunds" $
+        withScratch "shelley-initial-funds" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            initialFunds <-
+                readShelleyInitialFunds $
+                    outputDir </> "genesis/shelley-genesis.json"
+            initialFunds `shouldBe` [1000000000]
 
     it "rejects a non-empty output directory without deleting it" $
         withScratch "non-empty-output" $ \root -> do
@@ -118,6 +138,22 @@ loadMinimalScenario = do
     case decodeScenarioBytes scenarioBytes of
         Left err -> fail err
         Right scenario -> pure (scenarioBytes, scenario)
+
+newtype ShelleyInitialFunds = ShelleyInitialFunds [Integer]
+    deriving (Eq, Show)
+
+instance FromJSON ShelleyInitialFunds where
+    parseJSON = withObject "ShelleyGenesis" $ \object -> do
+        initialFunds <- object .: "initialFunds"
+        ShelleyInitialFunds . sort . KeyMap.elems
+            <$> withObject "initialFunds" (traverse parseJSON) initialFunds
+
+readShelleyInitialFunds :: FilePath -> IO [Integer]
+readShelleyInitialFunds path = do
+    bytes <- LBS.readFile path
+    case eitherDecode bytes of
+        Left err -> fail err
+        Right (ShelleyInitialFunds initialFunds) -> pure initialFunds
 
 runBake
     :: LBS.ByteString
