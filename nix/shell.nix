@@ -6,7 +6,7 @@
 project.shellFor {
   withHoogle = false;
   tools = {
-    cabal = { version = "3.10.3.0"; };
+    cabal = { };
     fourmolu = { version = "0.16.2.0"; };
     hlint = { };
     haskell-language-server = { };
