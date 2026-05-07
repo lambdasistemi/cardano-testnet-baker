@@ -59,5 +59,10 @@
       "paymentKeyLabel": "genesis.1-payment",
       "lovelace": 1000000000000
     }
-  ]
+  ],
+  "synthesis": {
+    "enabled": true,
+    "slotCount": 300000,
+    "profile": "normal-realistic"
+  }
 }
