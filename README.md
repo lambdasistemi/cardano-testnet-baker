@@ -29,7 +29,7 @@ wiring are introduced via Spec-Driven Development; see open PRs and the
 ## Development
 
 ```sh
-nix develop          # cabal, GHC 9.6.7, fourmolu, hlint, hls
+nix develop          # cabal, GHC 9.12.3, fourmolu, hlint, hls
 just --list          # available recipes
 just CI              # mirrors the GitHub CI pipeline
 ```

@@ -19,7 +19,7 @@ pkgs.haskell-nix.cabalProject' {
         || builtins.match ".*/LICENSE$" path != null;
   };
 
-  compiler-nix-name = "ghc967";
+  compiler-nix-name = "ghc9123";
 
   shell = {
     withHoogle = false;
