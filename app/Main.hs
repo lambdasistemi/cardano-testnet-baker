@@ -12,7 +12,7 @@ module Main
     ( main
     ) where
 
-import CardanoTestnetBaker (libraryVersion)
+import Cardano.Testnet.Baker (libraryVersion)
 import Options.Applicative
     ( Parser
     , ParserInfo

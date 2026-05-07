@@ -1,14 +1,14 @@
 {- |
-Module      : CardanoTestnetBaker.VersionSpec
+Module      : Cardano.Testnet.Baker.VersionSpec
 Description : Sanity checks for the frozen library version constant.
 Copyright   : (c) Paolo Veronelli, 2026
 License     : Apache-2.0
 -}
-module CardanoTestnetBaker.VersionSpec
+module Cardano.Testnet.Baker.VersionSpec
     ( spec
     ) where
 
-import CardanoTestnetBaker.Version (libraryVersion)
+import Cardano.Testnet.Baker.Version (libraryVersion)
 import Test.Hspec (Spec, describe, it, shouldSatisfy)
 
 spec :: Spec
