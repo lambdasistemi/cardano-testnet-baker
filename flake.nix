@@ -2,8 +2,10 @@
   description = "Deterministic Cardano testnet artifact baker";
 
   nixConfig = {
-    extra-substituters =
-      [ "https://cache.iog.io" "https://paolino.cachix.org" ];
+    extra-substituters = [
+      "https://cache.iog.io"
+      "https://paolino.cachix.org"
+    ];
     extra-trusted-public-keys = [
       "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
       "paolino.cachix.org-1:m/ddECNNFmjffrlmCFf3PPoffp46zU0wgoyz1Bj7Wjg="
@@ -18,8 +20,7 @@
       # Pinned to the same crypto-overlay revision used by
       # amaru-bootstrap; newer main revisions currently fail the libblst
       # version check during shell construction.
-      url =
-        "github:input-output-hk/iohk-nix/fdfc53bc51c684fe086117de651f36572b26655a";
+      url = "github:input-output-hk/iohk-nix/fdfc53bc51c684fe086117de651f36572b26655a";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     CHaP = {
@@ -29,8 +30,17 @@
   };
 
   outputs =
-    inputs@{ self, nixpkgs, flake-utils, haskellNix, iohkNix, CHaP, ... }:
-    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
+    inputs@{
+      self,
+      nixpkgs,
+      flake-utils,
+      haskellNix,
+      iohkNix,
+      CHaP,
+      ...
+    }:
+    flake-utils.lib.eachSystem [ "x86_64-linux" ] (
+      system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -43,16 +53,17 @@
         };
 
         project = import ./nix/project.nix { inherit pkgs CHaP; };
-        shell = import ./nix/shell.nix { inherit pkgs project; };
+        iogTools = import ./nix/iog-tools.nix { inherit project; };
+        shell = import ./nix/shell.nix { inherit pkgs project iogTools; };
         checks = import ./nix/checks.nix { inherit pkgs project; };
 
         flakePkgs = project.flake { };
-      in {
+      in
+      {
         packages = flakePkgs.packages // {
-          default =
-            flakePkgs.packages."cardano-testnet-baker:exe:cardano-testnet-baker";
-          unit-tests =
-            flakePkgs.packages."cardano-testnet-baker:test:unit-tests";
+          default = flakePkgs.packages."cardano-testnet-baker:exe:cardano-testnet-baker";
+          db-synthesizer = iogTools.db-synthesizer;
+          unit-tests = flakePkgs.packages."cardano-testnet-baker:test:unit-tests";
         };
 
         inherit checks;
@@ -60,8 +71,12 @@
         devShells.default = shell;
 
         apps = flakePkgs.apps // {
-          default =
-            flakePkgs.apps."cardano-testnet-baker:exe:cardano-testnet-baker";
+          default = flakePkgs.apps."cardano-testnet-baker:exe:cardano-testnet-baker";
+          db-synthesizer = {
+            type = "app";
+            program = "${iogTools.db-synthesizer}/bin/db-synthesizer";
+          };
         };
-      });
+      }
+    );
 }
