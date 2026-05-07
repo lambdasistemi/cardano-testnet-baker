@@ -14,7 +14,7 @@
   "genesis": {
     "epochLength": 120,
     "activeSlotsCoeff": 0.05,
-    "securityParam": 10,
+    "securityParam": 2,
     "k": 1,
     "maxLovelaceSupply": 45000000000000000
   },

@@ -25,6 +25,7 @@ data DerivationRole
     | PoolVrfKey
     | PoolKesKey
     | PoolStakeKey
+    | PoolStakePaymentKey
     | FaucetPaymentKey
     deriving (Eq, Show)
 
@@ -46,4 +47,5 @@ roleTag = \case
     PoolVrfKey -> "pool-vrf"
     PoolKesKey -> "pool-kes"
     PoolStakeKey -> "pool-stake"
+    PoolStakePaymentKey -> "pool-stake-payment"
     FaucetPaymentKey -> "faucet-payment"

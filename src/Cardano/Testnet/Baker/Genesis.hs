@@ -12,17 +12,25 @@ module Cardano.Testnet.Baker.Genesis
     , renderShelleyGenesis
     ) where
 
-import Cardano.Testnet.Baker.Keys (faucetPaymentAddressHex)
+import Cardano.Testnet.Baker.Keys
+    ( faucetPaymentAddressHex
+    , poolColdKeyHashHex
+    , poolStakeAddressHex
+    , poolStakeKeyHashHex
+    , poolVrfKeyHashHex
+    )
 import Cardano.Testnet.Baker.Metadata (canonicalJsonBytes)
 import Cardano.Testnet.Baker.Scenario
     ( EraSchedule (..)
     , FaucetDeclaration (..)
     , Network (..)
+    , PoolDeclaration (..)
     , Scenario (..)
     , ScenarioGenesis (..)
     )
-import Data.Aeson (Value, object, (.=))
+import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson.Key qualified as Key
+import Data.ByteString (ByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
@@ -99,7 +107,7 @@ renderShelleyGenesis scenario =
                 .= scenarioGenesisActiveSlotsCoeff genesis
             , "epochLength" .= scenarioGenesisEpochLength genesis
             , "genDelegs" .= object []
-            , "initialFunds" .= faucetInitialFunds scenario
+            , "initialFunds" .= initialFunds scenario
             , "maxKESEvolutions" .= (62 :: Int)
             , "maxLovelaceSupply"
                 .= scenarioGenesisMaxLovelaceSupply genesis
@@ -112,8 +120,8 @@ renderShelleyGenesis scenario =
                 .= scenarioGenesisEpochLength genesis
             , "staking"
                 .= object
-                    [ "pools" .= object []
-                    , "stake" .= object []
+                    [ "pools" .= stakingPools scenario
+                    , "stake" .= stakeDelegations scenario
                     ]
             , "updateQuorum" .= (1 :: Int)
             ]
@@ -401,13 +409,62 @@ renderNodeConfig scenario =
   where
     schedule = scenarioEraSchedule scenario
 
-faucetInitialFunds :: Scenario -> Value
-faucetInitialFunds scenario =
+initialFunds :: Scenario -> Value
+initialFunds scenario =
     object
-        [ Key.fromText
-            (faucetPaymentAddressHex seed (scenarioNetwork scenario) faucet)
+        (faucetFunds <> poolStakeFunds)
+  where
+    seed = TextEncoding.encodeUtf8 (scenarioSeed scenario)
+    network = scenarioNetwork scenario
+    faucetFunds =
+        [ Key.fromText (faucetPaymentAddressHex seed network faucet)
             .= faucetLovelace faucet
         | faucet <- scenarioFaucets scenario
+        ]
+    poolStakeFunds =
+        [ Key.fromText (poolStakeAddressHex seed network pool) .= poolStake pool
+        | pool <- scenarioPools scenario
+        , poolStake pool > 0
+        ]
+
+stakingPools :: Scenario -> Value
+stakingPools scenario =
+    object
+        [ Key.fromText poolId .= stakingPoolValue scenario seed pool poolId
+        | pool <- scenarioPools scenario
+        , let poolId = poolColdKeyHashHex seed pool
+        ]
+  where
+    seed = TextEncoding.encodeUtf8 (scenarioSeed scenario)
+
+stakingPoolValue
+    :: Scenario -> ByteString -> PoolDeclaration -> Text.Text -> Value
+stakingPoolValue scenario seed pool poolId =
+    object
+        [ "cost" .= poolCost pool
+        , "margin" .= poolMargin pool
+        , "metadata" .= Null
+        , "owners" .= [stakeKeyHash]
+        , "pledge" .= poolPledge pool
+        , "publicKey" .= poolId
+        , "relays" .= ([] :: [Value])
+        , "rewardAccount"
+            .= object
+                [ "credential"
+                    .= object ["keyHash" .= stakeKeyHash]
+                , "network" .= networkId (scenarioNetwork scenario)
+                ]
+        , "vrf" .= poolVrfKeyHashHex seed pool
+        ]
+  where
+    stakeKeyHash = poolStakeKeyHashHex seed pool
+
+stakeDelegations :: Scenario -> Value
+stakeDelegations scenario =
+    object
+        [ Key.fromText (poolStakeKeyHashHex seed pool)
+            .= poolColdKeyHashHex seed pool
+        | pool <- scenarioPools scenario
         ]
   where
     seed = TextEncoding.encodeUtf8 (scenarioSeed scenario)

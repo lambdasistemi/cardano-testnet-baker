@@ -54,14 +54,24 @@
 
         project = import ./nix/project.nix { inherit pkgs CHaP; };
         iogTools = import ./nix/iog-tools.nix { inherit project; };
-        shell = import ./nix/shell.nix { inherit pkgs project iogTools; };
-        checks = import ./nix/checks.nix { inherit pkgs project; };
-
         flakePkgs = project.flake { };
+        baker =
+          pkgs.writeShellApplication {
+            name = "cardano-testnet-baker";
+            runtimeInputs = [
+              flakePkgs.packages."cardano-testnet-baker:exe:cardano-testnet-baker"
+              iogTools.db-synthesizer
+            ];
+            text = ''
+              exec cardano-testnet-baker "$@"
+            '';
+          };
+        shell = import ./nix/shell.nix { inherit pkgs project iogTools; };
+        checks = import ./nix/checks.nix { inherit pkgs project baker; };
       in
       {
         packages = flakePkgs.packages // {
-          default = flakePkgs.packages."cardano-testnet-baker:exe:cardano-testnet-baker";
+          default = baker;
           db-synthesizer = iogTools.db-synthesizer;
           unit-tests = flakePkgs.packages."cardano-testnet-baker:test:unit-tests";
         };
@@ -71,7 +81,10 @@
         devShells.default = shell;
 
         apps = flakePkgs.apps // {
-          default = flakePkgs.apps."cardano-testnet-baker:exe:cardano-testnet-baker";
+          default = {
+            type = "app";
+            program = "${baker}/bin/cardano-testnet-baker";
+          };
           db-synthesizer = {
             type = "app";
             program = "${iogTools.db-synthesizer}/bin/db-synthesizer";

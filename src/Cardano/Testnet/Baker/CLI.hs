@@ -20,9 +20,13 @@ import Cardano.Testnet.Baker.Bake
     ( BakeError (..)
     , BakeOutput (..)
     , BakeRequest (..)
-    , bakeScenarioWithoutSynthesis
+    , bakeScenarioWithSynthesisRunner
     )
 import Cardano.Testnet.Baker.Scenario (decodeScenarioBytes)
+import Cardano.Testnet.Baker.Synthesis
+    ( SynthesisError (..)
+    , dbSynthesizerRunner
+    )
 import Cardano.Testnet.Baker.Validation
     ( ValidationFailure (..)
     , validateScenario
@@ -174,7 +178,8 @@ runBakeOptions BakeOptions{..} = do
         Left err -> pure (Left ("scenario decode failed: " <> err))
         Right scenario -> do
             result <-
-                bakeScenarioWithoutSynthesis
+                bakeScenarioWithSynthesisRunner
+                    (dbSynthesizerRunner "db-synthesizer")
                     BakeRequest
                         { bakeRequestScenario = scenario
                         , bakeRequestScenarioBytes = scenarioBytes
@@ -232,6 +237,31 @@ showBakeError = \case
     BakeOutputPathExistsAsFile outputDir ->
         "output path exists as a file: " <> outputDir
     BakeSynthesisFailed err ->
-        "synthesis failed: " <> show err
+        "synthesis failed: " <> showSynthesisError err
     BakeIOException outputDir err ->
         "failed to write bake output at " <> outputDir <> ": " <> err
+
+showSynthesisError :: SynthesisError -> String
+showSynthesisError = \case
+    SynthesisInvalidTextEnvelope name err ->
+        "invalid synthesizer text envelope "
+            <> Text.unpack name
+            <> ": "
+            <> err
+    SynthesisInvalidGenesis path err ->
+        "invalid synthesizer genesis copy at " <> path <> ": " <> err
+    SynthesisProcessFailed executable exitCode stdout stderr ->
+        executable
+            <> " failed with "
+            <> show exitCode
+            <> output "stdout" stdout
+            <> output "stderr" stderr
+    SynthesisProcessException executable err ->
+        executable
+            <> " could not be started: "
+            <> err
+            <> "\nensure db-synthesizer is on PATH; with Nix use `nix run` or `nix develop`"
+  where
+    output label value
+        | null value = ""
+        | otherwise = "\n" <> label <> ":\n" <> value

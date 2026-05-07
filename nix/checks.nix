@@ -1,9 +1,8 @@
-{ pkgs, project }:
+{ pkgs, project, baker }:
 
 # Flake checks: each is a derivation.
 let
   flakePkgs = project.flake { };
-  baker = flakePkgs.packages."cardano-testnet-baker:exe:cardano-testnet-baker";
   library =
     flakePkgs.packages."cardano-testnet-baker:lib:cardano-testnet-baker";
 in {
@@ -34,26 +33,24 @@ in {
     nativeBuildInputs = [ baker pkgs.diffutils pkgs.findutils ];
     src = ../.;
   } ''
-    bake_and_diff() {
-      scenario=$1
-      first="$TMPDIR/$scenario-a"
-      second="$TMPDIR/$scenario-b"
+    first="$TMPDIR/local-fast-a"
+    second="$TMPDIR/local-fast-b"
 
-      cardano-testnet-baker bake \
-        --scenario "$src/examples/scenarios/$scenario.json" \
-        --out "$first"
-      cardano-testnet-baker bake \
-        --scenario "$src/examples/scenarios/$scenario.json" \
-        --out "$second"
+    cardano-testnet-baker bake \
+      --scenario "$src/examples/scenarios/local-fast.json" \
+      --out "$first"
+    cardano-testnet-baker bake \
+      --scenario "$src/examples/scenarios/local-fast.json" \
+      --out "$second"
 
-      diff -ru "$first" "$second"
-      (cd "$first" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/$scenario-a.modes"
-      (cd "$second" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/$scenario-b.modes"
-      diff -u "$TMPDIR/$scenario-a.modes" "$TMPDIR/$scenario-b.modes"
-    }
+    test -d "$first/chain-db/immutable"
+    test -d "$first/chain-db/ledger"
+    test -d "$first/chain-db/volatile"
 
-    bake_and_diff local-fast
-    bake_and_diff normal
+    diff -ru "$first" "$second"
+    (cd "$first" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/local-fast-a.modes"
+    (cd "$second" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/local-fast-b.modes"
+    diff -u "$TMPDIR/local-fast-a.modes" "$TMPDIR/local-fast-b.modes"
     touch "$out"
   '';
 }

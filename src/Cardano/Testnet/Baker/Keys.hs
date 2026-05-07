@@ -12,6 +12,10 @@ module Cardano.Testnet.Baker.Keys
     , deriveFaucetKeyArtifacts
     , derivePoolKeyArtifacts
     , faucetPaymentAddressHex
+    , poolColdKeyHashHex
+    , poolStakeAddressHex
+    , poolStakeKeyHashHex
+    , poolVrfKeyHashHex
     ) where
 
 import Cardano.Api qualified as Api
@@ -137,6 +141,71 @@ faucetPaymentAddressHex scenarioSeed network faucet =
     paymentKeyHash =
         Api.verificationKeyHash (Api.getVerificationKey paymentSigning)
 
+-- | Hex-encoded stake pool cold verification key hash.
+poolColdKeyHashHex :: ByteString -> PoolDeclaration -> Text
+poolColdKeyHashHex scenarioSeed pool =
+    serialiseVerificationKeyHashHex coldSigning
+  where
+    coldSigning =
+        deriveSigningKey
+            Api.AsStakePoolKey
+            PoolColdKey
+            (poolColdKeyLabel pool)
+            scenarioSeed
+
+-- | Hex-encoded pool VRF verification key hash.
+poolVrfKeyHashHex :: ByteString -> PoolDeclaration -> Text
+poolVrfKeyHashHex scenarioSeed pool =
+    serialiseVerificationKeyHashHex vrfSigning
+  where
+    vrfSigning =
+        deriveSigningKey
+            Api.AsVrfKey
+            PoolVrfKey
+            (poolVrfKeyLabel pool)
+            scenarioSeed
+
+-- | Hex-encoded pool stake verification key hash.
+poolStakeKeyHashHex :: ByteString -> PoolDeclaration -> Text
+poolStakeKeyHashHex scenarioSeed pool =
+    serialiseVerificationKeyHashHex stakeSigning
+  where
+    stakeSigning =
+        deriveSigningKey
+            Api.AsStakeKey
+            PoolStakeKey
+            (poolStakeKeyLabel pool)
+            scenarioSeed
+
+-- | Hex-encoded Shelley base address that carries the pool's delegated stake.
+poolStakeAddressHex
+    :: ByteString -> Network -> PoolDeclaration -> Text
+poolStakeAddressHex scenarioSeed network pool =
+    Api.serialiseToRawBytesHexText $
+        Api.makeShelleyAddress
+            (toApiNetworkId network)
+            (Api.PaymentCredentialByKey paymentKeyHash)
+            (Api.StakeAddressByValue (Api.StakeCredentialByKey stakeKeyHash))
+  where
+    -- Reuse the stake label deliberately: role tags separate payment and
+    -- stake key derivation while preserving a stable per-pool address.
+    paymentSigning =
+        deriveSigningKey
+            Api.AsPaymentKey
+            PoolStakePaymentKey
+            (poolStakeKeyLabel pool)
+            scenarioSeed
+    stakeSigning =
+        deriveSigningKey
+            Api.AsStakeKey
+            PoolStakeKey
+            (poolStakeKeyLabel pool)
+            scenarioSeed
+    paymentKeyHash =
+        Api.verificationKeyHash (Api.getVerificationKey paymentSigning)
+    stakeKeyHash =
+        Api.verificationKeyHash (Api.getVerificationKey stakeSigning)
+
 issuePoolOperationalCertificate
     :: Api.SigningKey Api.StakePoolKey
     -> Api.SigningKey Api.KesKey
@@ -171,6 +240,15 @@ deriveSigningKey asType role label scenarioSeed =
                 role
                 label
                 (fromIntegral (Api.deterministicSigningKeySeedSize asType))
+
+serialiseVerificationKeyHashHex
+    :: (Api.HasTypeProxy keyrole, Api.Key keyrole)
+    => Api.SigningKey keyrole
+    -> Text
+serialiseVerificationKeyHashHex =
+    Api.serialiseToRawBytesHexText
+        . Api.verificationKeyHash
+        . Api.getVerificationKey
 
 toApiNetworkId :: Network -> Api.NetworkId
 toApiNetworkId network =
