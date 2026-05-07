@@ -68,6 +68,9 @@ in both outputs, and diff non-run-specific outputs.
 - [ ] T024 [US1] Run `nix run . -- bake --scenario examples/scenarios/local-fast.json --out tmp/synthesis/local-fast`
 - [ ] T025 [US1] Run the local two-run deterministic diff for `local-fast` excluding host-only report fields
 
+Note: `local-fast` uses `securityParam=2` with `epochLength=120` because
+the upstream synthesizer rejects `securityParam=10` at this epoch length.
+
 **Checkpoint**: User Story 1 is independently functional and `local-fast`
 produces a ChainDB seed.
 
@@ -97,6 +100,10 @@ observations.
 - [ ] T033 [US2] Update `nix/checks.nix` with a report-shape check for synthesis outputs
 - [ ] T034 [US2] Update `justfile` with a realistic measurement recipe for `normal`
 - [ ] T035 [US2] Run the `normal` synthesis measurement path and record the observed report location in `specs/002-chaindb-synthesis/quickstart.md`
+
+Note: `normal` is intentionally not part of the per-commit `just CI` synthesis
+loop because its `slotCount=300000` path is the realistic measurement workflow
+for this story, not the routine fast acceptance gate.
 
 **Checkpoint**: User Story 2 produces size and timing evidence for storage
 strategy decisions.

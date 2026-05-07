@@ -75,15 +75,15 @@ spec = describe "CLI parser" $ do
         runScenarioValidate "examples/scenarios/local-fast.json"
             `shouldReturn` Right ()
 
-    it "bakes a committed scenario file" $
-        withScratch "bake-local-fast" $ \root -> do
-            let outputDir = root </> "local-fast"
+    it "bakes a genesis-only scenario file" $
+        withScratch "bake-minimal" $ \root -> do
+            let outputDir = root </> "minimal"
 
             result <-
                 runBakeOptions
                     BakeOptions
                         { bakeScenarioPath =
-                            "examples/scenarios/local-fast.json"
+                            "test/data/minimal-scenario.json"
                         , bakeOutputDir = outputDir
                         }
 

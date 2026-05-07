@@ -15,12 +15,19 @@ import Cardano.Testnet.Baker.Bake
     , bakeScenarioWithSynthesisRunner
     , bakeScenarioWithoutSynthesis
     )
+import Cardano.Testnet.Baker.Keys
+    ( poolColdKeyHashHex
+    , poolStakeAddressHex
+    , poolStakeKeyHashHex
+    , poolVrfKeyHashHex
+    )
 import Cardano.Testnet.Baker.Metadata
     ( Digest (..)
     , digestBytes
     )
 import Cardano.Testnet.Baker.Scenario
-    ( Scenario
+    ( PoolDeclaration (..)
+    , Scenario (..)
     , decodeScenarioBytes
     )
 import Cardano.Testnet.Baker.Synthesis
@@ -48,8 +55,14 @@ import Data.IORef
     , readIORef
     , writeIORef
     )
-import Data.List (sort, sortOn)
+import Data.List
+    ( isSuffixOf
+    , sort
+    , sortOn
+    )
 import Data.Text (Text)
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as TextEncoding
 import System.Directory
     ( createDirectoryIfMissing
     , doesDirectoryExist
@@ -57,7 +70,10 @@ import System.Directory
     , listDirectory
     , removePathForcibly
     )
-import System.FilePath ((</>))
+import System.FilePath
+    ( takeDirectory
+    , (</>)
+    )
 import System.Posix.Files
     ( fileMode
     , getFileStatus
@@ -103,7 +119,7 @@ spec = describe "bake output layout" $ do
             initialFunds <-
                 readShelleyInitialFundAmounts $
                     outputDir </> "genesis/shelley-genesis.json"
-            initialFunds `shouldBe` [1000000000]
+            initialFunds `shouldBe` [1000000000, 1000000000]
 
     it "stages synthesized ChainDB while preserving Shelley initial funds" $
         withScratch "synthesis-output" $ \root -> do
@@ -113,8 +129,18 @@ spec = describe "bake output layout" $ do
                 runner =
                     SynthesisRunner $ \SynthesisRun{..} -> do
                         synthesisRunSlotCount `shouldBe` 720
+                        synthesisRunNodeConfigPath
+                            `shouldSatisfy` isSuffixOf
+                                ".synthesis/genesis/config.json"
                         doesPathExist synthesisRunNodeConfigPath
                             `shouldReturn` True
+                        scratchShelley <-
+                            LBS.readFile $
+                                takeDirectory synthesisRunNodeConfigPath
+                                    </> "shelley-genesis.json"
+                        scratchShelley
+                            `shouldSatisfy` containsBytes
+                                "\"systemStart\":\"1970-01-01T00:00:00Z\""
                         doesPathExist synthesisRunBulkCredentialsPath
                             `shouldReturn` True
                         createDirectoryIfMissing
@@ -147,9 +173,14 @@ spec = describe "bake output layout" $ do
             initialFunds <-
                 readShelleyInitialFundAmounts $
                     outputDir </> "genesis/shelley-genesis.json"
-            initialFunds `shouldBe` [1000000000000]
+            initialFunds `shouldBe` [1000000000, 1000000000000]
             doesPathExist (outputDir </> ".synthesis")
                 `shouldReturn` False
+            finalShelley <-
+                LBS.readFile $
+                    outputDir </> "genesis/shelley-genesis.json"
+            finalShelley
+                `shouldSatisfy` not . containsBytes "systemStart"
 
     it "does not publish output when synthesis fails" $
         withScratch "synthesis-failure" $ \root -> do
@@ -218,7 +249,37 @@ spec = describe "bake output layout" $ do
             initialFundAddresses <-
                 readShelleyInitialFundAddresses $
                     outputDir </> "genesis/shelley-genesis.json"
-            initialFundAddresses `shouldBe` [addressInfo]
+            initialFundAddresses `shouldSatisfy` elem addressInfo
+
+    it "registers pool stake in Shelley genesis" $
+        withScratch "pool-stake-registration" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            ShelleyStakeRegistration pools delegations initialFunds <-
+                readShelleyStakeRegistration $
+                    outputDir </> "genesis/shelley-genesis.json"
+            fmap fst pools
+                `shouldBe` sort
+                    [ expectedPoolColdKeyHash scenario pool
+                    | pool <- scenarioPools scenario
+                    ]
+            for_ (scenarioPools scenario) $ \pool -> do
+                let poolId = expectedPoolColdKeyHash scenario pool
+                    stakeKeyHash = expectedPoolStakeKeyHash scenario pool
+                    stakeAddress = expectedPoolStakeAddress scenario pool
+                lookup poolId pools
+                    `shouldBe` Just
+                        ShelleyPoolRegistration
+                            { shelleyPoolPublicKey = poolId
+                            , shelleyPoolVrf =
+                                expectedPoolVrfKeyHash scenario pool
+                            }
+                lookup stakeKeyHash delegations `shouldBe` Just poolId
+                lookup stakeAddress initialFunds `shouldBe` Just (poolStake pool)
 
     it "rejects a non-empty output directory without deleting it" $
         withScratch "non-empty-output" $ \root -> do
@@ -390,6 +451,47 @@ instance FromJSON FaucetAddressInfo where
     parseJSON = withObject "FaucetAddressInfo" $ \object ->
         FaucetAddressInfo <$> object .: "addressHex"
 
+data ShelleyStakeRegistration
+    = ShelleyStakeRegistration
+        [(String, ShelleyPoolRegistration)]
+        [(String, String)]
+        [(String, Integer)]
+    deriving (Eq, Show)
+
+data ShelleyPoolRegistration = ShelleyPoolRegistration
+    { shelleyPoolPublicKey :: String
+    , shelleyPoolVrf :: String
+    }
+    deriving (Eq, Ord, Show)
+
+instance FromJSON ShelleyStakeRegistration where
+    parseJSON = withObject "ShelleyGenesis" $ \object -> do
+        staking <- object .: "staking"
+        initialFunds <- object .: "initialFunds"
+        (pools, delegations) <-
+            withObject "staking" parseStakingRegistration staking
+        funds <-
+            sort . fmap keyTextPair . KeyMap.toList
+                <$> withObject "initialFunds" (traverse parseJSON) initialFunds
+        pure $ ShelleyStakeRegistration pools delegations funds
+      where
+        parseStakingRegistration object = do
+            pools <- object .: "pools"
+            stake <- object .: "stake"
+            parsedPools <-
+                sort . fmap keyTextPair . KeyMap.toList
+                    <$> withObject "pools" (traverse parseJSON) pools
+            parsedStake <-
+                sort . fmap keyTextPair . KeyMap.toList
+                    <$> withObject "stake" (traverse parseJSON) stake
+            pure (parsedPools, parsedStake)
+
+instance FromJSON ShelleyPoolRegistration where
+    parseJSON = withObject "ShelleyPool" $ \object ->
+        ShelleyPoolRegistration
+            <$> object .: "publicKey"
+            <*> object .: "vrf"
+
 newtype MetadataArtifactDigests = MetadataArtifactDigests [(FilePath, Digest)]
     deriving (Eq, Show)
 
@@ -463,6 +565,38 @@ readFaucetAddressInfo path = do
         Left err -> fail err
         Right (FaucetAddressInfo addressHex) -> pure addressHex
 
+readShelleyStakeRegistration
+    :: FilePath -> IO ShelleyStakeRegistration
+readShelleyStakeRegistration path = do
+    bytes <- LBS.readFile path
+    case eitherDecode bytes of
+        Left err -> fail err
+        Right registration -> pure registration
+
+expectedPoolColdKeyHash :: Scenario -> PoolDeclaration -> String
+expectedPoolColdKeyHash scenario pool =
+    Text.unpack $ poolColdKeyHashHex (scenarioSeedBytes scenario) pool
+
+expectedPoolStakeKeyHash :: Scenario -> PoolDeclaration -> String
+expectedPoolStakeKeyHash scenario pool =
+    Text.unpack $ poolStakeKeyHashHex (scenarioSeedBytes scenario) pool
+
+expectedPoolVrfKeyHash :: Scenario -> PoolDeclaration -> String
+expectedPoolVrfKeyHash scenario pool =
+    Text.unpack $ poolVrfKeyHashHex (scenarioSeedBytes scenario) pool
+
+expectedPoolStakeAddress :: Scenario -> PoolDeclaration -> String
+expectedPoolStakeAddress scenario pool =
+    Text.unpack $
+        poolStakeAddressHex
+            (scenarioSeedBytes scenario)
+            (scenarioNetwork scenario)
+            pool
+
+scenarioSeedBytes :: Scenario -> BS.ByteString
+scenarioSeedBytes =
+    TextEncoding.encodeUtf8 . scenarioSeed
+
 readMetadataArtifactDigests :: FilePath -> IO [(FilePath, Digest)]
 readMetadataArtifactDigests path = do
     bytes <- LBS.readFile path
@@ -494,7 +628,7 @@ readConwayPlutusV3CostModelLength path = do
         Right (ConwayPlutusV3CostModelLength costModelLength) ->
             pure costModelLength
 
-keyTextPair :: (Key.Key, Integer) -> (String, Integer)
+keyTextPair :: (Key.Key, value) -> (String, value)
 keyTextPair (key, amount) = (Key.toString key, amount)
 
 digestKeyTextPair :: (Key.Key, Text) -> (FilePath, Digest)
@@ -631,6 +765,10 @@ isTextEnvelope bytes =
         && BS.isInfixOf "\"cborHex\"" strictBytes
   where
     strictBytes = LBS.toStrict bytes
+
+containsBytes :: BS.ByteString -> LBS.ByteString -> Bool
+containsBytes needle bytes =
+    BS.isInfixOf needle (LBS.toStrict bytes)
 
 isPlaceholder :: LBS.ByteString -> Bool
 isPlaceholder bytes =

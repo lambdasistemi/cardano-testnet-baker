@@ -39,7 +39,7 @@ import Cardano.Testnet.Baker.Scenario
     )
 import Cardano.Testnet.Baker.Synthesis
     ( BulkCredential
-    , SynthesisError
+    , SynthesisError (..)
     , SynthesisRun (..)
     , SynthesisRunner (..)
     , bulkCredentialFromPoolArtifacts
@@ -57,7 +57,13 @@ import Control.Exception
     , try
     )
 import Control.Monad (when)
-import Data.Aeson (Value, object, (.=))
+import Data.Aeson
+    ( Value (..)
+    , eitherDecode
+    , object
+    , (.=)
+    )
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Bits ((.|.))
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy qualified as LBS
@@ -68,7 +74,8 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
 import System.Directory
-    ( createDirectoryIfMissing
+    ( copyFile
+    , createDirectoryIfMissing
     , doesDirectoryExist
     , doesPathExist
     , listDirectory
@@ -245,22 +252,70 @@ runRequestedSynthesis (Just runner) scenario stageDir =
                 Left err -> pure (Left err)
                 Right bytes -> do
                     LBS.writeFile bulkCredentialsPath bytes
-                    result <-
-                        runSynthesis
-                            runner
-                            SynthesisRun
-                                { synthesisRunNodeConfigPath =
-                                    stageDir </> "genesis/config.json"
-                                , synthesisRunBulkCredentialsPath =
-                                    bulkCredentialsPath
-                                , synthesisRunChainDbPath = chainDbPath
-                                , synthesisRunSlotCount = slotCount
-                                }
-                    case result of
+                    configResult <-
+                        prepareSynthesisGenesisCopy stageDir scratchDir
+                    case configResult of
                         Left err -> pure (Left err)
-                        Right () -> do
-                            removeIfExists scratchDir
-                            pure (Right ())
+                        Right configPath -> do
+                            result <-
+                                runSynthesis
+                                    runner
+                                    SynthesisRun
+                                        { synthesisRunNodeConfigPath =
+                                            configPath
+                                        , synthesisRunBulkCredentialsPath =
+                                            bulkCredentialsPath
+                                        , synthesisRunChainDbPath =
+                                            chainDbPath
+                                        , synthesisRunSlotCount =
+                                            slotCount
+                                        }
+                            case result of
+                                Left err -> pure (Left err)
+                                Right () -> do
+                                    removeIfExists scratchDir
+                                    pure (Right ())
+
+prepareSynthesisGenesisCopy
+    :: FilePath
+    -> FilePath
+    -> IO (Either SynthesisError FilePath)
+prepareSynthesisGenesisCopy stageDir scratchDir = do
+    let sourceGenesisDir = stageDir </> "genesis"
+        targetGenesisDir = scratchDir </> "genesis"
+        sourceShelley = sourceGenesisDir </> "shelley-genesis.json"
+        targetShelley = targetGenesisDir </> "shelley-genesis.json"
+    createDirectoryIfMissing True targetGenesisDir
+    for_ synthesizerGenesisFiles $ \fileName ->
+        copyFile
+            (sourceGenesisDir </> fileName)
+            (targetGenesisDir </> fileName)
+    shelleyBytes <- LBS.readFile sourceShelley
+    case eitherDecode shelleyBytes of
+        Left err -> pure (Left (SynthesisInvalidGenesis sourceShelley err))
+        Right (Object shelley) -> do
+            LBS.writeFile targetShelley $
+                canonicalJsonBytes $
+                    Object $
+                        KeyMap.insert
+                            "systemStart"
+                            (String "1970-01-01T00:00:00Z")
+                            shelley
+            pure (Right (targetGenesisDir </> "config.json"))
+        Right _ ->
+            pure $
+                Left $
+                    SynthesisInvalidGenesis
+                        sourceShelley
+                        "expected Shelley genesis JSON object"
+
+synthesizerGenesisFiles :: [FilePath]
+synthesizerGenesisFiles =
+    [ "config.json"
+    , "byron-genesis.json"
+    , "alonzo-genesis.json"
+    , "conway-genesis.json"
+    ]
 
 requestedSlotCount :: Scenario -> Maybe Int
 requestedSlotCount scenario =

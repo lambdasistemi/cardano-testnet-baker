@@ -16,14 +16,18 @@ module Cardano.Testnet.Baker.Synthesis
     , bulkCredentialOperationalCertificate
     , bulkCredentialVrfSigningKey
     , bulkCredentialFromPoolArtifacts
+    , dbSynthesizerRunner
     , renderBulkCredentials
     ) where
 
 import Cardano.Testnet.Baker.Keys (PoolKeyArtifacts (..))
 import Cardano.Testnet.Baker.Metadata (canonicalJsonBytes)
+import Control.Exception (try)
 import Data.Aeson (Value, eitherDecode, toJSON)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text (Text)
+import System.Exit (ExitCode (..))
+import System.Process (readProcessWithExitCode)
 
 -- | One producer credential tuple for @db-synthesizer@ bulk mode.
 data BulkCredential = BulkCredential
@@ -39,6 +43,9 @@ data BulkCredential = BulkCredential
 -- | Failures while preparing synthesizer inputs from baked artifacts.
 data SynthesisError
     = SynthesisInvalidTextEnvelope Text String
+    | SynthesisInvalidGenesis FilePath String
+    | SynthesisProcessFailed FilePath ExitCode String String
+    | SynthesisProcessException FilePath String
     deriving (Eq, Show)
 
 -- | One invocation of the upstream synthesizer.
@@ -58,6 +65,49 @@ data SynthesisRun = SynthesisRun
 newtype SynthesisRunner = SynthesisRunner
     { runSynthesis :: SynthesisRun -> IO (Either SynthesisError ())
     }
+
+-- | Invoke the stock upstream @db-synthesizer@ executable.
+dbSynthesizerRunner :: FilePath -> SynthesisRunner
+dbSynthesizerRunner executable =
+    SynthesisRunner $ \SynthesisRun{..} -> do
+        result <-
+            tryProcess $
+                readProcessWithExitCode
+                    executable
+                    (synthesisArgs SynthesisRun{..})
+                    ""
+        pure $
+            case result of
+                Left err -> Left (SynthesisProcessException executable err)
+                Right (ExitSuccess, _stdout, _stderr) -> Right ()
+                Right (exitCode, stdout, stderr) ->
+                    Left $
+                        SynthesisProcessFailed
+                            executable
+                            exitCode
+                            stdout
+                            stderr
+
+synthesisArgs :: SynthesisRun -> [String]
+synthesisArgs SynthesisRun{..} =
+    [ "--config"
+    , synthesisRunNodeConfigPath
+    , "--db"
+    , synthesisRunChainDbPath
+    , "--bulk-credentials-file"
+    , synthesisRunBulkCredentialsPath
+    , "--slots"
+    , show synthesisRunSlotCount
+    , "-f"
+    ]
+
+tryProcess :: IO a -> IO (Either String a)
+tryProcess action = do
+    result <- try action
+    pure $
+        case result of
+            Left err -> Left (show (err :: IOError))
+            Right value -> Right value
 
 -- | Select the producer artifacts consumed by the synthesizer.
 bulkCredentialFromPoolArtifacts

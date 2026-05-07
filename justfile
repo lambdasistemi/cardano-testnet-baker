@@ -78,6 +78,15 @@ bake-local-fast out="tmp/bakes/local-fast":
         --scenario examples/scenarios/local-fast.json \
         --out "{{ out }}"
 
+# Synthesize the routine local-fast ChainDB seed.
+synthesize-local-fast out="tmp/synthesis/local-fast":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/local-fast.json \
+        --out "{{ out }}"
+
 # Bake both committed scenarios into scratch output directories.
 bake-examples out="tmp/bakes":
     #!/usr/bin/env bash
@@ -122,6 +131,5 @@ CI:
     just validate-scenarios
     nix run .#unit-tests --quiet
     rm -rf tmp/ci-acceptance
-    just bake-examples tmp/ci-acceptance/bakes
+    just synthesize-local-fast tmp/ci-acceptance/bakes/local-fast
     just acceptance-local-fast tmp/ci-acceptance/bakes/local-fast
-    just acceptance-normal tmp/ci-acceptance/bakes/normal

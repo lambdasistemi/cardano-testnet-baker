@@ -19,6 +19,11 @@ cardano-testnet-baker bake \
   --out tmp/synthesis/local-fast
 ```
 
+`local-fast` intentionally keeps `epochLength=120` with `securityParam=2`.
+The stock upstream synthesizer rejects the previous fast-testnet combination
+of `epochLength=120`, `securityParam=10`, and `activeSlotsCoeff=0.05` because
+the epoch is shorter than its `10k/f` lower bound.
+
 Expected output includes:
 
 ```text
@@ -71,3 +76,10 @@ diff -ru \
 
 The ChainDB seed and deterministic metadata must match. Timing observations in
 `synthesis-report.json` are intentionally host-dependent.
+
+## 6. Local CI Scope
+
+`just CI` runs the synthesized `local-fast` round-trip and compose acceptance.
+It does not synthesize `normal`: that scenario uses `slotCount=300000` for the
+storage and wall-time measurement tasks, so it is deferred to the explicit
+measurement workflow rather than the per-commit local gate.
