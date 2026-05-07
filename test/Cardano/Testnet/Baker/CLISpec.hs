@@ -13,9 +13,25 @@ import Cardano.Testnet.Baker.CLI
     , Command (..)
     , ScenarioCommand (..)
     , parseCommandArgs
+    , runScenarioValidate
     )
+import Control.Exception (finally)
+import Control.Monad (when)
 import Data.Either (isLeft)
-import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
+import System.Directory
+    ( createDirectoryIfMissing
+    , doesPathExist
+    , removePathForcibly
+    )
+import System.FilePath ((</>))
+import Test.Hspec
+    ( Spec
+    , describe
+    , it
+    , shouldBe
+    , shouldReturn
+    , shouldSatisfy
+    )
 
 spec :: Spec
 spec = describe "CLI parser" $ do
@@ -50,3 +66,45 @@ spec = describe "CLI parser" $ do
         parseCommandArgs
             ["bake", "--scenario", "examples/scenarios/local-fast.json"]
             `shouldSatisfy` isLeft
+
+    it "validates a committed scenario file" $
+        runScenarioValidate "examples/scenarios/local-fast.json"
+            `shouldReturn` Right ()
+
+    it "returns an error for an invalid scenario file" $
+        withScratch "invalid-scenario" $ \root -> do
+            let scenarioPath = root </> "bad.json"
+            writeFile scenarioPath invalidScenario
+
+            runScenarioValidate scenarioPath `shouldSatisfyM` isLeft
+
+withScratch :: FilePath -> (FilePath -> IO ()) -> IO ()
+withScratch name action = do
+    let root = "tmp/unit/cli" </> name
+    removeIfExists root
+    createDirectoryIfMissing True root
+    action root `finally` removeIfExists root
+
+removeIfExists :: FilePath -> IO ()
+removeIfExists path = do
+    exists <- doesPathExist path
+    when exists $
+        removePathForcibly path
+
+shouldSatisfyM :: (Show a) => IO a -> (a -> Bool) -> IO ()
+shouldSatisfyM action predicate = do
+    value <- action
+    value `shouldSatisfy` predicate
+
+invalidScenario :: String
+invalidScenario =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"bad\",\
+    \\"seed\":\"00\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000},\
+    \\"pools\":[],\
+    \\"faucets\":[]\
+    \}"

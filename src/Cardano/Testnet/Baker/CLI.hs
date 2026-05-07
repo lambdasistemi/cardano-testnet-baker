@@ -12,9 +12,17 @@ module Cardano.Testnet.Baker.CLI
     , ScenarioCommand (..)
     , parseCommandArgs
     , runCLI
+    , runScenarioValidate
     ) where
 
+import Cardano.Testnet.Baker.Scenario (decodeScenarioBytes)
+import Cardano.Testnet.Baker.Validation
+    ( ValidationFailure (..)
+    , validateScenario
+    )
 import Cardano.Testnet.Baker.Version (libraryVersion)
+import Data.ByteString.Lazy qualified as LBS
+import Data.Text qualified as Text
 import Options.Applicative
     ( Parser
     , ParserInfo
@@ -140,12 +148,40 @@ versionOption =
         (long "version" <> help "Show version and exit")
 
 runCommand :: Command -> IO ()
-runCommand command =
-    die $
-        commandName command
-            <> " execution is introduced by a later feature slice"
+runCommand = \case
+    CommandScenario (ScenarioValidate scenarioPath) ->
+        runScenarioValidate scenarioPath >>= \case
+            Right () -> putStrLn ("valid scenario: " <> scenarioPath)
+            Left err -> die err
+    CommandBake _ ->
+        die "bake execution is introduced by a later feature slice"
 
-commandName :: Command -> String
-commandName = \case
-    CommandScenario (ScenarioValidate _) -> "scenario validate"
-    CommandBake _ -> "bake"
+-- | Decode and semantically validate a scenario JSON file.
+runScenarioValidate :: FilePath -> IO (Either String ())
+runScenarioValidate scenarioPath = do
+    scenarioBytes <- LBS.readFile scenarioPath
+    pure $
+        case decodeScenarioBytes scenarioBytes of
+            Left err -> Left ("scenario decode failed: " <> err)
+            Right scenario ->
+                case validateScenario scenario of
+                    Right _ -> Right ()
+                    Left failures ->
+                        Left $
+                            "scenario semantic validation failed:\n"
+                                <> unlines
+                                    (("- " <>) . showValidationFailure <$> failures)
+
+showValidationFailure :: ValidationFailure -> String
+showValidationFailure = \case
+    NoPools -> "pools must contain at least one pool"
+    NoFaucets -> "faucets must contain at least one faucet"
+    DuplicatePoolLabel label ->
+        "duplicate pool label: " <> Text.unpack label
+    DuplicateFaucetLabel label ->
+        "duplicate faucet label: " <> Text.unpack label
+    FaucetFundingExceedsSupply requested supply ->
+        "faucet funding "
+            <> show requested
+            <> " exceeds max lovelace supply "
+            <> show supply
