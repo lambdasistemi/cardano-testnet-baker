@@ -106,9 +106,9 @@
 - [x] T045 [US3] Implement compose setup, wait, log capture, verdict, and cleanup in `compose/acceptance/run.sh`
 - [x] T046 [US3] Add static topology/config fixtures needed by the acceptance cluster in `compose/acceptance/topology/`
 - [x] T047 [US3] Add `just bake-examples`, `just acceptance-local-fast`, and `just acceptance-normal` recipes in `justfile`
-- [ ] T048 [US3] Add Nix checks for two-run example bakes and recursive diffs in `nix/checks.nix`
-- [ ] T049 [US3] Add Nix/CI hooks for compose acceptance of `local-fast` and `normal` in `nix/checks.nix`
-- [ ] T050 [US3] Update GitHub Actions to run schema, bake determinism, and compose acceptance jobs after Build Gate in `.github/workflows/ci.yml`
+- [x] T048 [US3] Add Nix checks for two-run example bakes and recursive diffs in `nix/checks.nix`
+- [x] T049 [US3] Add Nix/CI hooks for compose acceptance of `local-fast` and `normal` in `nix/checks.nix`
+- [x] T050 [US3] Update GitHub Actions to run schema, bake determinism, and compose acceptance jobs after Build Gate in `.github/workflows/ci.yml`
 
 **Checkpoint**: User Story 3 works independently from the committed examples and proves node startup acceptance for generated assets.
 

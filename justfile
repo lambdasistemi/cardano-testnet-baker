@@ -55,6 +55,7 @@ build-gate:
         .#default \
         .#unit-tests \
         .#checks.x86_64-linux.scenario-schema \
+        .#checks.x86_64-linux.example-bake-determinism \
         .#devShells.x86_64-linux.default.inputDerivation
 
 # Validate committed scenario examples against the published schema.
