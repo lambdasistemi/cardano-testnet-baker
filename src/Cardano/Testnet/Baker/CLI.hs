@@ -215,6 +215,12 @@ showValidationFailure = \case
             <> show requested
             <> " exceeds max lovelace supply "
             <> show supply
+    SynthesisSlotCountRequired ->
+        "synthesis slotCount is required when enabled"
+    SynthesisSlotCountNotPositive slotCount ->
+        "synthesis slotCount must be positive, got " <> show slotCount
+    SynthesisProfileEmpty ->
+        "synthesis profile must be non-empty when present"
 
 showBakeError :: BakeError -> String
 showBakeError = \case
