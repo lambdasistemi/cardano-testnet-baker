@@ -15,8 +15,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  action-runtime-guard:
+    name: Action runtimes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Reject deprecated JavaScript action runtimes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .github/scripts/check-action-runtimes.sh
+
   build-gate:
     name: Build Gate
+    needs: action-runtime-guard
     runs-on: nixos
     steps:
       - uses: actions/checkout@v6
