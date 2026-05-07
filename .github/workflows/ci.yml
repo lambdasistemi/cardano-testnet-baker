@@ -19,8 +19,8 @@ jobs:
     name: Build Gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/cachix-action@v15
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -38,8 +38,8 @@ jobs:
     needs: build-gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/cachix-action@v15
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -51,8 +51,8 @@ jobs:
     needs: build-gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/cachix-action@v15
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -65,13 +65,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
             accept-flake-config = true
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -101,8 +101,8 @@ jobs:
     needs: build-gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/cachix-action@v15
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -114,8 +114,8 @@ jobs:
     needs: build-gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/cachix-action@v15
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -127,8 +127,8 @@ jobs:
     needs: build-gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/cachix-action@v15
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
