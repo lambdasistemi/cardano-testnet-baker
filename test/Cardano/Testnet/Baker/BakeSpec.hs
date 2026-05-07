@@ -29,6 +29,7 @@ import Data.Aeson
     , eitherDecode
     , withObject
     , (.:)
+    , (.:?)
     )
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -209,6 +210,49 @@ spec = describe "bake output layout" $ do
                 artifact <- LBS.readFile (outputDir </> relativePath)
                 isPlaceholder artifact `shouldBe` False
 
+    it "renders node config without development network protocol flags" $
+        withScratch "node-config-flags" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            nodeConfig <-
+                readNodeConfig $
+                    outputDir </> "genesis/config.json"
+            nodeConfigConsensusMode nodeConfig `shouldBe` "GenesisMode"
+            nodeConfigExperimentalProtocolsEnabled nodeConfig `shouldBe` False
+            nodeConfigDevelopmentProtocolFlag nodeConfig `shouldBe` Nothing
+
+    it "renders the Alonzo Plutus V1 cost model required by cardano-node" $
+        withScratch "alonzo-cost-model" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            costModelLanguages <-
+                readAlonzoCostModelLanguages $
+                    outputDir </> "genesis/alonzo-genesis.json"
+            costModelLanguages `shouldBe` ["PlutusV1"]
+
+    it
+        "renders the Conway Plutus V3 cost model length required by cardano-node"
+        $ withScratch "conway-cost-model"
+        $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            costModelLength <-
+                readConwayPlutusV3CostModelLength $
+                    outputDir </> "genesis/conway-genesis.json"
+            costModelLength `shouldBe` 251
+
 loadMinimalScenario :: IO (LBS.ByteString, Scenario)
 loadMinimalScenario = do
     scenarioBytes <- LBS.readFile "test/data/minimal-scenario.json"
@@ -247,6 +291,41 @@ instance FromJSON MetadataArtifactDigests where
                 (traverse parseJSON)
                 artifactDigests
 
+data NodeConfigFields = NodeConfigFields
+    { nodeConfigConsensusMode :: String
+    , nodeConfigExperimentalProtocolsEnabled :: Bool
+    , nodeConfigDevelopmentProtocolFlag :: Maybe Bool
+    }
+    deriving (Eq, Show)
+
+instance FromJSON NodeConfigFields where
+    parseJSON = withObject "NodeConfig" $ \object ->
+        NodeConfigFields
+            <$> object .: "ConsensusMode"
+            <*> object .: "ExperimentalProtocolsEnabled"
+            <*> object .:? "TestEnableDevelopmentNetworkProtocols"
+
+newtype AlonzoCostModelLanguages = AlonzoCostModelLanguages [String]
+    deriving (Eq, Show)
+
+instance FromJSON AlonzoCostModelLanguages where
+    parseJSON = withObject "AlonzoGenesis" $ \object -> do
+        costModels <- object .: "costModels"
+        AlonzoCostModelLanguages
+            . sort
+            . fmap (Key.toString . fst)
+            . KeyMap.toList
+            <$> withObject "costModels" pure costModels
+
+newtype ConwayPlutusV3CostModelLength = ConwayPlutusV3CostModelLength Int
+    deriving (Eq, Show)
+
+instance FromJSON ConwayPlutusV3CostModelLength where
+    parseJSON = withObject "ConwayGenesis" $ \object -> do
+        costModel <- object .: "plutusV3CostModel"
+        let values = costModel :: [Int]
+        pure (ConwayPlutusV3CostModelLength (length values))
+
 readShelleyInitialFundAmounts :: FilePath -> IO [Integer]
 readShelleyInitialFundAmounts path =
     fmap snd <$> readShelleyInitialFunds path
@@ -277,6 +356,29 @@ readMetadataArtifactDigests path = do
         Left err -> fail err
         Right (MetadataArtifactDigests artifactDigests) ->
             pure artifactDigests
+
+readNodeConfig :: FilePath -> IO NodeConfigFields
+readNodeConfig path = do
+    bytes <- LBS.readFile path
+    case eitherDecode bytes of
+        Left err -> fail err
+        Right nodeConfig -> pure nodeConfig
+
+readAlonzoCostModelLanguages :: FilePath -> IO [String]
+readAlonzoCostModelLanguages path = do
+    bytes <- LBS.readFile path
+    case eitherDecode bytes of
+        Left err -> fail err
+        Right (AlonzoCostModelLanguages costModelLanguages) ->
+            pure costModelLanguages
+
+readConwayPlutusV3CostModelLength :: FilePath -> IO Int
+readConwayPlutusV3CostModelLength path = do
+    bytes <- LBS.readFile path
+    case eitherDecode bytes of
+        Left err -> fail err
+        Right (ConwayPlutusV3CostModelLength costModelLength) ->
+            pure costModelLength
 
 keyTextPair :: (Key.Key, Integer) -> (String, Integer)
 keyTextPair (key, amount) = (Key.toString key, amount)

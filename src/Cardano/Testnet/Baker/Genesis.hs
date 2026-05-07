@@ -125,7 +125,10 @@ renderAlonzoGenesis =
     canonicalJsonBytes $
         object
             [ "collateralPercentage" .= (150 :: Int)
-            , "costModels" .= object []
+            , "costModels"
+                .= object
+                    [ "PlutusV1" .= plutusV1CostModel
+                    ]
             , "executionPrices"
                 .= object
                     [ "prMem"
@@ -154,6 +157,181 @@ renderAlonzoGenesis =
             , "maxValueSize" .= (5000 :: Int)
             ]
 
+plutusV1CostModel :: Value
+plutusV1CostModel =
+    object
+        [ "addInteger-cpu-arguments-intercept" .= (197209 :: Int)
+        , "addInteger-cpu-arguments-slope" .= (0 :: Int)
+        , "addInteger-memory-arguments-intercept" .= (1 :: Int)
+        , "addInteger-memory-arguments-slope" .= (1 :: Int)
+        , "appendByteString-cpu-arguments-intercept" .= (396231 :: Int)
+        , "appendByteString-cpu-arguments-slope" .= (621 :: Int)
+        , "appendByteString-memory-arguments-intercept" .= (0 :: Int)
+        , "appendByteString-memory-arguments-slope" .= (1 :: Int)
+        , "appendString-cpu-arguments-intercept" .= (150000 :: Int)
+        , "appendString-cpu-arguments-slope" .= (1000 :: Int)
+        , "appendString-memory-arguments-intercept" .= (0 :: Int)
+        , "appendString-memory-arguments-slope" .= (1 :: Int)
+        , "bData-cpu-arguments" .= (150000 :: Int)
+        , "bData-memory-arguments" .= (32 :: Int)
+        , "blake2b-cpu-arguments-intercept" .= (2477736 :: Int)
+        , "blake2b-cpu-arguments-slope" .= (29175 :: Int)
+        , "blake2b-memory-arguments" .= (4 :: Int)
+        , "cekApplyCost-exBudgetCPU" .= (29773 :: Int)
+        , "cekApplyCost-exBudgetMemory" .= (100 :: Int)
+        , "cekBuiltinCost-exBudgetCPU" .= (29773 :: Int)
+        , "cekBuiltinCost-exBudgetMemory" .= (100 :: Int)
+        , "cekConstCost-exBudgetCPU" .= (29773 :: Int)
+        , "cekConstCost-exBudgetMemory" .= (100 :: Int)
+        , "cekDelayCost-exBudgetCPU" .= (29773 :: Int)
+        , "cekDelayCost-exBudgetMemory" .= (100 :: Int)
+        , "cekForceCost-exBudgetCPU" .= (29773 :: Int)
+        , "cekForceCost-exBudgetMemory" .= (100 :: Int)
+        , "cekLamCost-exBudgetCPU" .= (29773 :: Int)
+        , "cekLamCost-exBudgetMemory" .= (100 :: Int)
+        , "cekStartupCost-exBudgetCPU" .= (100 :: Int)
+        , "cekStartupCost-exBudgetMemory" .= (100 :: Int)
+        , "cekVarCost-exBudgetCPU" .= (29773 :: Int)
+        , "cekVarCost-exBudgetMemory" .= (100 :: Int)
+        , "chooseData-cpu-arguments" .= (150000 :: Int)
+        , "chooseData-memory-arguments" .= (32 :: Int)
+        , "chooseList-cpu-arguments" .= (150000 :: Int)
+        , "chooseList-memory-arguments" .= (32 :: Int)
+        , "chooseUnit-cpu-arguments" .= (150000 :: Int)
+        , "chooseUnit-memory-arguments" .= (32 :: Int)
+        , "consByteString-cpu-arguments-intercept" .= (150000 :: Int)
+        , "consByteString-cpu-arguments-slope" .= (1000 :: Int)
+        , "consByteString-memory-arguments-intercept" .= (0 :: Int)
+        , "consByteString-memory-arguments-slope" .= (1 :: Int)
+        , "constrData-cpu-arguments" .= (150000 :: Int)
+        , "constrData-memory-arguments" .= (32 :: Int)
+        , "decodeUtf8-cpu-arguments-intercept" .= (150000 :: Int)
+        , "decodeUtf8-cpu-arguments-slope" .= (1000 :: Int)
+        , "decodeUtf8-memory-arguments-intercept" .= (0 :: Int)
+        , "decodeUtf8-memory-arguments-slope" .= (8 :: Int)
+        , "divideInteger-cpu-arguments-constant" .= (148000 :: Int)
+        , "divideInteger-cpu-arguments-model-arguments-intercept"
+            .= (425507 :: Int)
+        , "divideInteger-cpu-arguments-model-arguments-slope" .= (118 :: Int)
+        , "divideInteger-memory-arguments-intercept" .= (0 :: Int)
+        , "divideInteger-memory-arguments-minimum" .= (1 :: Int)
+        , "divideInteger-memory-arguments-slope" .= (1 :: Int)
+        , "encodeUtf8-cpu-arguments-intercept" .= (150000 :: Int)
+        , "encodeUtf8-cpu-arguments-slope" .= (1000 :: Int)
+        , "encodeUtf8-memory-arguments-intercept" .= (0 :: Int)
+        , "encodeUtf8-memory-arguments-slope" .= (8 :: Int)
+        , "equalsByteString-cpu-arguments-constant" .= (150000 :: Int)
+        , "equalsByteString-cpu-arguments-intercept" .= (112536 :: Int)
+        , "equalsByteString-cpu-arguments-slope" .= (247 :: Int)
+        , "equalsByteString-memory-arguments" .= (1 :: Int)
+        , "equalsData-cpu-arguments-intercept" .= (150000 :: Int)
+        , "equalsData-cpu-arguments-slope" .= (10000 :: Int)
+        , "equalsData-memory-arguments" .= (1 :: Int)
+        , "equalsInteger-cpu-arguments-intercept" .= (136542 :: Int)
+        , "equalsInteger-cpu-arguments-slope" .= (1326 :: Int)
+        , "equalsInteger-memory-arguments" .= (1 :: Int)
+        , "equalsString-cpu-arguments-constant" .= (1000 :: Int)
+        , "equalsString-cpu-arguments-intercept" .= (150000 :: Int)
+        , "equalsString-cpu-arguments-slope" .= (1000 :: Int)
+        , "equalsString-memory-arguments" .= (1 :: Int)
+        , "fstPair-cpu-arguments" .= (150000 :: Int)
+        , "fstPair-memory-arguments" .= (32 :: Int)
+        , "headList-cpu-arguments" .= (150000 :: Int)
+        , "headList-memory-arguments" .= (32 :: Int)
+        , "iData-cpu-arguments" .= (150000 :: Int)
+        , "iData-memory-arguments" .= (32 :: Int)
+        , "ifThenElse-cpu-arguments" .= (1 :: Int)
+        , "ifThenElse-memory-arguments" .= (1 :: Int)
+        , "indexByteString-cpu-arguments" .= (150000 :: Int)
+        , "indexByteString-memory-arguments" .= (1 :: Int)
+        , "lengthOfByteString-cpu-arguments" .= (150000 :: Int)
+        , "lengthOfByteString-memory-arguments" .= (4 :: Int)
+        , "lessThanByteString-cpu-arguments-intercept" .= (103599 :: Int)
+        , "lessThanByteString-cpu-arguments-slope" .= (248 :: Int)
+        , "lessThanByteString-memory-arguments" .= (1 :: Int)
+        , "lessThanEqualsByteString-cpu-arguments-intercept" .= (103599 :: Int)
+        , "lessThanEqualsByteString-cpu-arguments-slope" .= (248 :: Int)
+        , "lessThanEqualsByteString-memory-arguments" .= (1 :: Int)
+        , "lessThanEqualsInteger-cpu-arguments-intercept" .= (145276 :: Int)
+        , "lessThanEqualsInteger-cpu-arguments-slope" .= (1366 :: Int)
+        , "lessThanEqualsInteger-memory-arguments" .= (1 :: Int)
+        , "lessThanInteger-cpu-arguments-intercept" .= (179690 :: Int)
+        , "lessThanInteger-cpu-arguments-slope" .= (497 :: Int)
+        , "lessThanInteger-memory-arguments" .= (1 :: Int)
+        , "listData-cpu-arguments" .= (150000 :: Int)
+        , "listData-memory-arguments" .= (32 :: Int)
+        , "mapData-cpu-arguments" .= (150000 :: Int)
+        , "mapData-memory-arguments" .= (32 :: Int)
+        , "mkCons-cpu-arguments" .= (150000 :: Int)
+        , "mkCons-memory-arguments" .= (32 :: Int)
+        , "mkNilData-cpu-arguments" .= (150000 :: Int)
+        , "mkNilData-memory-arguments" .= (32 :: Int)
+        , "mkNilPairData-cpu-arguments" .= (150000 :: Int)
+        , "mkNilPairData-memory-arguments" .= (32 :: Int)
+        , "mkPairData-cpu-arguments" .= (150000 :: Int)
+        , "mkPairData-memory-arguments" .= (32 :: Int)
+        , "modInteger-cpu-arguments-constant" .= (148000 :: Int)
+        , "modInteger-cpu-arguments-model-arguments-intercept"
+            .= (425507 :: Int)
+        , "modInteger-cpu-arguments-model-arguments-slope" .= (118 :: Int)
+        , "modInteger-memory-arguments-intercept" .= (0 :: Int)
+        , "modInteger-memory-arguments-minimum" .= (1 :: Int)
+        , "modInteger-memory-arguments-slope" .= (1 :: Int)
+        , "multiplyInteger-cpu-arguments-intercept" .= (61516 :: Int)
+        , "multiplyInteger-cpu-arguments-slope" .= (11218 :: Int)
+        , "multiplyInteger-memory-arguments-intercept" .= (0 :: Int)
+        , "multiplyInteger-memory-arguments-slope" .= (1 :: Int)
+        , "nullList-cpu-arguments" .= (150000 :: Int)
+        , "nullList-memory-arguments" .= (32 :: Int)
+        , "quotientInteger-cpu-arguments-constant" .= (148000 :: Int)
+        , "quotientInteger-cpu-arguments-model-arguments-intercept"
+            .= (425507 :: Int)
+        , "quotientInteger-cpu-arguments-model-arguments-slope" .= (118 :: Int)
+        , "quotientInteger-memory-arguments-intercept" .= (0 :: Int)
+        , "quotientInteger-memory-arguments-minimum" .= (1 :: Int)
+        , "quotientInteger-memory-arguments-slope" .= (1 :: Int)
+        , "remainderInteger-cpu-arguments-constant" .= (148000 :: Int)
+        , "remainderInteger-cpu-arguments-model-arguments-intercept"
+            .= (425507 :: Int)
+        , "remainderInteger-cpu-arguments-model-arguments-slope" .= (118 :: Int)
+        , "remainderInteger-memory-arguments-intercept" .= (0 :: Int)
+        , "remainderInteger-memory-arguments-minimum" .= (1 :: Int)
+        , "remainderInteger-memory-arguments-slope" .= (1 :: Int)
+        , "sha2_256-cpu-arguments-intercept" .= (2477736 :: Int)
+        , "sha2_256-cpu-arguments-slope" .= (29175 :: Int)
+        , "sha2_256-memory-arguments" .= (4 :: Int)
+        , "sha3_256-cpu-arguments-intercept" .= (0 :: Int)
+        , "sha3_256-cpu-arguments-slope" .= (82363 :: Int)
+        , "sha3_256-memory-arguments" .= (4 :: Int)
+        , "sliceByteString-cpu-arguments-intercept" .= (150000 :: Int)
+        , "sliceByteString-cpu-arguments-slope" .= (5000 :: Int)
+        , "sliceByteString-memory-arguments-intercept" .= (0 :: Int)
+        , "sliceByteString-memory-arguments-slope" .= (1 :: Int)
+        , "sndPair-cpu-arguments" .= (150000 :: Int)
+        , "sndPair-memory-arguments" .= (32 :: Int)
+        , "subtractInteger-cpu-arguments-intercept" .= (197209 :: Int)
+        , "subtractInteger-cpu-arguments-slope" .= (0 :: Int)
+        , "subtractInteger-memory-arguments-intercept" .= (1 :: Int)
+        , "subtractInteger-memory-arguments-slope" .= (1 :: Int)
+        , "tailList-cpu-arguments" .= (150000 :: Int)
+        , "tailList-memory-arguments" .= (32 :: Int)
+        , "trace-cpu-arguments" .= (150000 :: Int)
+        , "trace-memory-arguments" .= (32 :: Int)
+        , "unBData-cpu-arguments" .= (150000 :: Int)
+        , "unBData-memory-arguments" .= (32 :: Int)
+        , "unConstrData-cpu-arguments" .= (150000 :: Int)
+        , "unConstrData-memory-arguments" .= (32 :: Int)
+        , "unIData-cpu-arguments" .= (150000 :: Int)
+        , "unIData-memory-arguments" .= (32 :: Int)
+        , "unListData-cpu-arguments" .= (150000 :: Int)
+        , "unListData-memory-arguments" .= (32 :: Int)
+        , "unMapData-cpu-arguments" .= (150000 :: Int)
+        , "unMapData-memory-arguments" .= (32 :: Int)
+        , "verifySignature-cpu-arguments-intercept" .= (3345831 :: Int)
+        , "verifySignature-cpu-arguments-slope" .= (1 :: Int)
+        , "verifySignature-memory-arguments" .= (1 :: Int)
+        ]
+
 renderConwayGenesis :: LBS.ByteString
 renderConwayGenesis =
     canonicalJsonBytes $
@@ -179,7 +357,7 @@ renderConwayGenesis =
             , "govActionDeposit" .= (0 :: Integer)
             , "govActionLifetime" .= (0 :: Int)
             , "minFeeRefScriptCostPerByte" .= (0 :: Int)
-            , "plutusV3CostModel" .= replicate 230 (0 :: Int)
+            , "plutusV3CostModel" .= replicate 251 (0 :: Int)
             , "poolVotingThresholds" .= poolVotingThresholds
             ]
 
@@ -189,14 +367,14 @@ renderNodeConfig scenario =
         object
             [ "AlonzoGenesisFile" .= ("alonzo-genesis.json" :: String)
             , "ByronGenesisFile" .= ("byron-genesis.json" :: String)
+            , "ConsensusMode" .= ("GenesisMode" :: String)
             , "ConwayGenesisFile" .= ("conway-genesis.json" :: String)
             , "EnableP2P" .= True
-            , "ExperimentalHardForksEnabled" .= True
-            , "ExperimentalProtocolsEnabled" .= True
+            , "ExperimentalHardForksEnabled" .= False
+            , "ExperimentalProtocolsEnabled" .= False
             , "LastKnownBlockVersion-Alt" .= (0 :: Int)
             , "LastKnownBlockVersion-Major" .= (6 :: Int)
             , "LastKnownBlockVersion-Minor" .= (0 :: Int)
-            , "MaxKnownMajorProtocolVersion" .= (2 :: Int)
             , "Protocol" .= ("Cardano" :: String)
             , "RequiresNetworkMagic"
                 .= requiresNetworkMagic (scenarioNetwork scenario)
@@ -206,8 +384,6 @@ renderNodeConfig scenario =
             , "TestAlonzoHardForkAtEpoch" .= eraScheduleAlonzo schedule
             , "TestBabbageHardForkAtEpoch" .= eraScheduleAlonzo schedule
             , "TestConwayHardForkAtEpoch" .= eraScheduleConway schedule
-            , "TestEnableDevelopmentHardForkEras" .= True
-            , "TestEnableDevelopmentNetworkProtocols" .= True
             , "TestMaryHardForkAtEpoch" .= eraScheduleShelley schedule
             , "TestShelleyHardForkAtEpoch" .= eraScheduleShelley schedule
             , "TraceOptions"
