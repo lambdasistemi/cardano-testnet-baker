@@ -23,9 +23,12 @@ import Control.Monad (when)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
+import Data.List (sort)
 import System.Directory
     ( createDirectoryIfMissing
+    , doesDirectoryExist
     , doesPathExist
+    , listDirectory
     , removePathForcibly
     )
 import System.FilePath ((</>))
@@ -45,14 +48,7 @@ spec = describe "bake output layout" $ do
             (scenarioBytes, scenario) <- loadMinimalScenario
             let outputDir = root </> "out"
 
-            result <-
-                bakeScenario
-                    BakeRequest
-                        { bakeRequestScenario = scenario
-                        , bakeRequestScenarioBytes = scenarioBytes
-                        , bakeRequestOutputDir = outputDir
-                        , bakeRequestBakerCommit = "test"
-                        }
+            result <- runBake scenarioBytes scenario outputDir
 
             result `shouldBe` Right (BakeOutput outputDir)
             for_ requiredPaths $ \relativePath ->
@@ -67,32 +63,48 @@ spec = describe "bake output layout" $ do
             createDirectoryIfMissing True outputDir
             writeFile existingFile "existing"
 
-            result <-
-                bakeScenario
-                    BakeRequest
-                        { bakeRequestScenario = scenario
-                        , bakeRequestScenarioBytes = scenarioBytes
-                        , bakeRequestOutputDir = outputDir
-                        , bakeRequestBakerCommit = "test"
-                        }
+            result <- runBake scenarioBytes scenario outputDir
 
             result
                 `shouldBe` Left (BakeOutputDirectoryNotEmpty outputDir)
             doesPathExist existingFile `shouldReturn` True
+
+    it "removes a stale staging directory before publishing" $
+        withScratch "stale-staging" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+                stagingDir = root </> ".out.staging"
+                staleFile = stagingDir </> "stale.txt"
+            createDirectoryIfMissing True stagingDir
+            writeFile staleFile "stale"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            doesPathExist staleFile `shouldReturn` False
+            doesPathExist stagingDir `shouldReturn` False
+            doesPathExist (outputDir </> "metadata.json")
+                `shouldReturn` True
+
+    it "writes byte-identical output across two runs" $
+        withScratch "two-run-determinism" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputA = root </> "out-a"
+                outputB = root </> "out-b"
+
+            resultA <- runBake scenarioBytes scenario outputA
+            resultB <- runBake scenarioBytes scenario outputB
+
+            resultA `shouldBe` Right (BakeOutput outputA)
+            resultB `shouldBe` Right (BakeOutput outputB)
+            assertEqualTrees outputA outputB
 
     it "writes generated key files as text envelopes" $
         withScratch "key-envelopes" $ \root -> do
             (scenarioBytes, scenario) <- loadMinimalScenario
             let outputDir = root </> "out"
 
-            result <-
-                bakeScenario
-                    BakeRequest
-                        { bakeRequestScenario = scenario
-                        , bakeRequestScenarioBytes = scenarioBytes
-                        , bakeRequestOutputDir = outputDir
-                        , bakeRequestBakerCommit = "test"
-                        }
+            result <- runBake scenarioBytes scenario outputDir
 
             result `shouldBe` Right (BakeOutput outputDir)
             coldKey <-
@@ -107,6 +119,20 @@ loadMinimalScenario = do
         Left err -> fail err
         Right scenario -> pure (scenarioBytes, scenario)
 
+runBake
+    :: LBS.ByteString
+    -> Scenario
+    -> FilePath
+    -> IO (Either BakeError BakeOutput)
+runBake scenarioBytes scenario outputDir =
+    bakeScenario
+        BakeRequest
+            { bakeRequestScenario = scenario
+            , bakeRequestScenarioBytes = scenarioBytes
+            , bakeRequestOutputDir = outputDir
+            , bakeRequestBakerCommit = "test"
+            }
+
 withScratch :: FilePath -> (FilePath -> IO ()) -> IO ()
 withScratch name action = do
     let root = "tmp/unit" </> name
@@ -119,6 +145,36 @@ removeIfExists path = do
     exists <- doesPathExist path
     when exists $
         removePathForcibly path
+
+assertEqualTrees :: FilePath -> FilePath -> IO ()
+assertEqualTrees left right = do
+    leftFiles <- recursiveFiles left
+    rightFiles <- recursiveFiles right
+    leftFiles `shouldBe` rightFiles
+    for_ leftFiles $ \relativePath -> do
+        leftBytes <- LBS.readFile (left </> relativePath)
+        rightBytes <- LBS.readFile (right </> relativePath)
+        leftBytes `shouldBe` rightBytes
+
+recursiveFiles :: FilePath -> IO [FilePath]
+recursiveFiles root =
+    go ""
+  where
+    go relative = do
+        let dir = if null relative then root else root </> relative
+        entries <- sort <$> listDirectory dir
+        concat <$> traverse (collect relative) entries
+
+    collect relative entry = do
+        let relativePath =
+                if null relative
+                    then entry
+                    else relative </> entry
+            fullPath = root </> relativePath
+        isDirectory <- doesDirectoryExist fullPath
+        if isDirectory
+            then go relativePath
+            else pure [relativePath]
 
 requiredPaths :: [FilePath]
 requiredPaths =

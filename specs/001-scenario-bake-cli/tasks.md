@@ -45,8 +45,8 @@
 ### Tests for User Story 1
 
 - [x] T017 [P] [US1] Add failing output layout tests for a minimal valid scenario in `test/Cardano/Testnet/Baker/BakeSpec.hs`
-- [ ] T018 [US1] Add failing non-empty-output and interrupted-staging tests in `test/Cardano/Testnet/Baker/BakeSpec.hs`
-- [ ] T019 [P] [US1] Add failing two-run recursive determinism tests in `test/Cardano/Testnet/Baker/DeterminismSpec.hs`
+- [x] T018 [US1] Add failing non-empty-output and interrupted-staging tests in `test/Cardano/Testnet/Baker/BakeSpec.hs`
+- [x] T019 [P] [US1] Add failing two-run recursive determinism tests in `test/Cardano/Testnet/Baker/BakeSpec.hs`
 - [ ] T020 [US1] Add failing Shelley `initialFunds` faucet funding tests in `test/Cardano/Testnet/Baker/BakeSpec.hs`
 - [x] T021 [P] [US1] Add the minimal bake test scenario fixture in `test/data/minimal-scenario.json`
 
