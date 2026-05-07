@@ -73,6 +73,16 @@ spec = describe "Scenario decoding and validation" $ do
         validateScenario scenario
             `shouldBe` Right (ValidatedScenario scenario)
 
+    it "validates disabled synthesis without a slot count" $ do
+        let Right scenario = decodeScenarioBytes scenarioWithDisabledSynthesis
+        validateScenario scenario
+            `shouldBe` Right (ValidatedScenario scenario)
+
+    it "validates enabled synthesis with a slot count and profile" $ do
+        let Right scenario = decodeScenarioBytes scenarioWithSynthesis
+        validateScenario scenario
+            `shouldBe` Right (ValidatedScenario scenario)
+
     it "validates the committed local-fast scenario" $ do
         scenario <- loadScenario "examples/scenarios/local-fast.json"
         validateScenario scenario
@@ -99,6 +109,20 @@ spec = describe "Scenario decoding and validation" $ do
         let Right scenario = decodeScenarioBytes overfundedFaucet
         validateScenario scenario
             `shouldBe` Left [FaucetFundingExceedsSupply 2000000 1000000]
+
+    it "rejects enabled synthesis without a slot count" $ do
+        let Right scenario = decodeScenarioBytes scenarioWithSynthesisMissingSlotCount
+        validateScenario scenario `shouldBe` Left [SynthesisSlotCountRequired]
+
+    it "rejects non-positive synthesis slot counts" $ do
+        let Right scenario = decodeScenarioBytes scenarioWithZeroSynthesisSlotCount
+        validateScenario scenario
+            `shouldBe` Left [SynthesisSlotCountNotPositive 0]
+
+    it "rejects an empty synthesis profile" $ do
+        let Right scenario = decodeScenarioBytes scenarioWithEmptySynthesisProfile
+        validateScenario scenario
+            `shouldBe` Left [SynthesisProfileEmpty]
 
     it "rejects run-specific systemStart in the baked scenario" $
         decodeScenarioBytes scenarioWithSystemStart `shouldSatisfy` isLeft
@@ -228,6 +252,62 @@ scenarioWithSynthesisMissingEnabled =
     \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
     \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
     \\"synthesis\":{\"slotCount\":720}\
+    \}"
+
+scenarioWithDisabledSynthesis :: ByteString
+scenarioWithDisabledSynthesis =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"disabled-synthesis\",\
+    \\"seed\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
+    \\"synthesis\":{\"enabled\":false}\
+    \}"
+
+scenarioWithSynthesisMissingSlotCount :: ByteString
+scenarioWithSynthesisMissingSlotCount =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"bad-synthesis-missing-slot-count\",\
+    \\"seed\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
+    \\"synthesis\":{\"enabled\":true}\
+    \}"
+
+scenarioWithZeroSynthesisSlotCount :: ByteString
+scenarioWithZeroSynthesisSlotCount =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"bad-synthesis-zero-slot-count\",\
+    \\"seed\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
+    \\"synthesis\":{\"enabled\":true,\"slotCount\":0}\
+    \}"
+
+scenarioWithEmptySynthesisProfile :: ByteString
+scenarioWithEmptySynthesisProfile =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"bad-synthesis-empty-profile\",\
+    \\"seed\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
+    \\"synthesis\":{\"enabled\":true,\"slotCount\":720,\"profile\":\"\"}\
     \}"
 
 loadScenario :: FilePath -> IO Scenario

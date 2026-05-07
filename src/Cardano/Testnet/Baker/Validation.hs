@@ -18,8 +18,10 @@ import Cardano.Testnet.Baker.Scenario
     , PoolDeclaration (..)
     , Scenario (..)
     , ScenarioGenesis (..)
+    , SynthesisRequest (..)
     )
 import Data.List (group, sort)
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as Text
 
@@ -34,6 +36,9 @@ data ValidationFailure
     | DuplicatePoolLabel Text
     | DuplicateFaucetLabel Text
     | FaucetFundingExceedsSupply Integer Integer
+    | SynthesisSlotCountRequired
+    | SynthesisSlotCountNotPositive Int
+    | SynthesisProfileEmpty
     deriving (Eq, Show)
 
 -- | Validate cross-field invariants that JSON Schema cannot express.
@@ -54,6 +59,7 @@ validationFailures scenario =
         , DuplicateFaucetLabel
             <$> duplicateLabels faucetLabel (scenarioFaucets scenario)
         , faucetSupplyFailures scenario
+        , synthesisFailures scenario
         ]
 
 duplicateLabels :: (a -> Text) -> [a] -> [Text]
@@ -75,3 +81,20 @@ faucetSupplyFailures scenario =
             scenarioGenesisMaxLovelaceSupply $
                 scenarioGenesis scenario
     in  [FaucetFundingExceedsSupply requested supply | requested > supply]
+
+synthesisFailures :: Scenario -> [ValidationFailure]
+synthesisFailures scenario =
+    case scenarioSynthesis scenario of
+        Nothing -> []
+        Just SynthesisRequest{..} ->
+            [ SynthesisSlotCountRequired
+            | synthesisEnabled && isNothing synthesisSlotCount
+            ]
+                <> [ SynthesisSlotCountNotPositive slotCount
+                   | Just slotCount <- [synthesisSlotCount]
+                   , slotCount <= 0
+                   ]
+                <> [ SynthesisProfileEmpty
+                   | Just profile <- [synthesisProfile]
+                   , Text.null profile
+                   ]
