@@ -11,7 +11,8 @@ module Cardano.Testnet.Baker.Bake
     ( BakeError (..)
     , BakeOutput (..)
     , BakeRequest (..)
-    , bakeScenario
+    , bakeScenarioWithoutSynthesis
+    , bakeScenarioWithSynthesisRunner
     ) where
 
 import Cardano.Testnet.Baker.Genesis (genesisArtifactBytes)
@@ -34,6 +35,15 @@ import Cardano.Testnet.Baker.Scenario
     , Network (..)
     , PoolDeclaration (..)
     , Scenario (..)
+    , SynthesisRequest (..)
+    )
+import Cardano.Testnet.Baker.Synthesis
+    ( BulkCredential
+    , SynthesisError
+    , SynthesisRun (..)
+    , SynthesisRunner (..)
+    , bulkCredentialFromPoolArtifacts
+    , renderBulkCredentials
     )
 import Cardano.Testnet.Baker.Validation
     ( ValidationFailure
@@ -100,19 +110,36 @@ data BakeError
     = BakeInvalidScenario [ValidationFailure]
     | BakeOutputDirectoryNotEmpty FilePath
     | BakeOutputPathExistsAsFile FilePath
+    | BakeSynthesisFailed SynthesisError
     | BakeIOException FilePath String
     deriving (Eq, Show)
 
--- | Validate, stage, and publish deterministic artifacts for a scenario.
-bakeScenario :: BakeRequest -> IO (Either BakeError BakeOutput)
-bakeScenario request =
+-- | Validate, stage, and publish deterministic artifacts without synthesis.
+bakeScenarioWithoutSynthesis
+    :: BakeRequest -> IO (Either BakeError BakeOutput)
+bakeScenarioWithoutSynthesis =
+    bakeScenarioWithOptionalSynthesisRunner Nothing
+
+-- | Bake with an injected ChainDB synthesis runner.
+bakeScenarioWithSynthesisRunner
+    :: SynthesisRunner
+    -> BakeRequest
+    -> IO (Either BakeError BakeOutput)
+bakeScenarioWithSynthesisRunner runner =
+    bakeScenarioWithOptionalSynthesisRunner (Just runner)
+
+bakeScenarioWithOptionalSynthesisRunner
+    :: Maybe SynthesisRunner
+    -> BakeRequest
+    -> IO (Either BakeError BakeOutput)
+bakeScenarioWithOptionalSynthesisRunner runner request =
     case validateScenario (bakeRequestScenario request) of
         Left failures -> pure (Left (BakeInvalidScenario failures))
         Right _ -> do
             readiness <- checkOutputDirectory (bakeRequestOutputDir request)
             case readiness of
                 Left failure -> pure (Left failure)
-                Right () -> publishStagedOutput request
+                Right () -> publishStagedOutput runner request
 
 checkOutputDirectory :: FilePath -> IO (Either BakeError ())
 checkOutputDirectory outputDir = do
@@ -130,28 +157,40 @@ checkOutputDirectory outputDir = do
                 else pure (Left (BakeOutputPathExistsAsFile outputDir))
         else pure (Right ())
 
-publishStagedOutput :: BakeRequest -> IO (Either BakeError BakeOutput)
-publishStagedOutput request = do
-    result <- try (writeThenRename request)
+publishStagedOutput
+    :: Maybe SynthesisRunner
+    -> BakeRequest
+    -> IO (Either BakeError BakeOutput)
+publishStagedOutput runner request = do
+    result <- try (writeThenRename runner request)
     pure $
         case result of
-            Right output -> Right output
+            Right output -> output
             Left err ->
                 Left $
                     BakeIOException
                         (bakeRequestOutputDir request)
                         (displayException (err :: IOException))
 
-writeThenRename :: BakeRequest -> IO BakeOutput
-writeThenRename request = do
+writeThenRename
+    :: Maybe SynthesisRunner
+    -> BakeRequest
+    -> IO (Either BakeError BakeOutput)
+writeThenRename runner request = do
     let outputDir = bakeRequestOutputDir request
         stageDir = stagingDirectory outputDir
     createDirectoryIfMissing True (takeDirectory outputDir)
     removeIfExists stageDir
-    writeStagedOutput request stageDir
-        `onException` removeIfExists stageDir
-    publish stageDir outputDir
-    pure (BakeOutput outputDir)
+    result <-
+        writeStagedOutput runner request stageDir
+            `onException` removeIfExists stageDir
+    case result of
+        Left err -> do
+            removeIfExists stageDir
+            pure (Left err)
+        Right () -> do
+            publish stageDir outputDir
+            pure (Right (BakeOutput outputDir))
 
 publish :: FilePath -> FilePath -> IO ()
 publish stageDir outputDir = do
@@ -160,8 +199,12 @@ publish stageDir outputDir = do
         removeDirectory outputDir
     renameDirectory stageDir outputDir
 
-writeStagedOutput :: BakeRequest -> FilePath -> IO ()
-writeStagedOutput request stageDir = do
+writeStagedOutput
+    :: Maybe SynthesisRunner
+    -> BakeRequest
+    -> FilePath
+    -> IO (Either BakeError ())
+writeStagedOutput runner request stageDir = do
     let scenario = bakeRequestScenario request
         artifactPaths = requiredArtifactPaths scenario
         generatedArtifacts =
@@ -169,13 +212,70 @@ writeStagedOutput request stageDir = do
     createDirectoryIfMissing True stageDir
     for_ artifactPaths $ \relativePath ->
         writeArtifact stageDir scenario generatedArtifacts relativePath
-    artifactDigests <- traverse (digestArtifact stageDir) artifactPaths
-    LBS.writeFile
-        (stageDir </> "metadata.json")
-        ( canonicalJsonBytes $
-            metadataToValue $
-                metadataFor request artifactDigests
-        )
+    synthesisResult <- runRequestedSynthesis runner scenario stageDir
+    case synthesisResult of
+        Left err -> pure (Left (BakeSynthesisFailed err))
+        Right () -> do
+            artifactDigests <- traverse (digestArtifact stageDir) artifactPaths
+            LBS.writeFile
+                (stageDir </> "metadata.json")
+                ( canonicalJsonBytes $
+                    metadataToValue $
+                        metadataFor request artifactDigests
+                )
+            pure (Right ())
+
+runRequestedSynthesis
+    :: Maybe SynthesisRunner
+    -> Scenario
+    -> FilePath
+    -> IO (Either SynthesisError ())
+runRequestedSynthesis Nothing _ _ =
+    pure (Right ())
+runRequestedSynthesis (Just runner) scenario stageDir =
+    case requestedSlotCount scenario of
+        Nothing -> pure (Right ())
+        Just slotCount -> do
+            let scratchDir = stageDir </> ".synthesis"
+                bulkCredentialsPath =
+                    scratchDir </> "bulk-credentials.json"
+                chainDbPath = stageDir </> "chain-db"
+            createDirectoryIfMissing True scratchDir
+            case renderBulkCredentials (poolBulkCredentials scenario) of
+                Left err -> pure (Left err)
+                Right bytes -> do
+                    LBS.writeFile bulkCredentialsPath bytes
+                    result <-
+                        runSynthesis
+                            runner
+                            SynthesisRun
+                                { synthesisRunNodeConfigPath =
+                                    stageDir </> "genesis/config.json"
+                                , synthesisRunBulkCredentialsPath =
+                                    bulkCredentialsPath
+                                , synthesisRunChainDbPath = chainDbPath
+                                , synthesisRunSlotCount = slotCount
+                                }
+                    case result of
+                        Left err -> pure (Left err)
+                        Right () -> do
+                            removeIfExists scratchDir
+                            pure (Right ())
+
+requestedSlotCount :: Scenario -> Maybe Int
+requestedSlotCount scenario =
+    case scenarioSynthesis scenario of
+        Just synthesis
+            | synthesisEnabled synthesis -> synthesisSlotCount synthesis
+        _ -> Nothing
+
+poolBulkCredentials :: Scenario -> [BulkCredential]
+poolBulkCredentials scenario =
+    bulkCredentialFromPoolArtifacts
+        . derivePoolKeyArtifacts seed
+        <$> scenarioPools scenario
+  where
+    seed = TextEncoding.encodeUtf8 (scenarioSeed scenario)
 
 writeArtifact
     :: FilePath
