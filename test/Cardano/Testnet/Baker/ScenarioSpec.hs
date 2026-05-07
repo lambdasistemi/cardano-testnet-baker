@@ -83,6 +83,12 @@ spec = describe "Scenario decoding and validation" $ do
         validateScenario scenario
             `shouldBe` Right (ValidatedScenario scenario)
 
+    it "keeps the minimal fixture as genesis-only coverage" $ do
+        scenario <- loadScenario "test/data/minimal-scenario.json"
+        scenarioSynthesis scenario `shouldBe` Nothing
+        validateScenario scenario
+            `shouldBe` Right (ValidatedScenario scenario)
+
     it "validates the committed local-fast scenario" $ do
         scenario <- loadScenario "examples/scenarios/local-fast.json"
         validateScenario scenario
