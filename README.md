@@ -36,6 +36,13 @@ artifacts. The compose acceptance harness starts a pinned `cardano-node` image
 from the generated assets and fails on startup, genesis, config, or key
 validation errors.
 
+Feature 002 is preparing ChainDB seed synthesis. Its design material lives in
+[`specs/002-chaindb-synthesis/`](./specs/002-chaindb-synthesis/), including the
+[quickstart](./specs/002-chaindb-synthesis/quickstart.md), scenario contract,
+artifact layout, measurement report, and compose seed acceptance contract. The
+current setup exposes the pinned upstream `db-synthesizer`; later patches extend
+the scenario schema and bake path.
+
 ## Scenario Validation
 
 Validate every committed example against the published JSON Schema:
@@ -66,6 +73,29 @@ just bake-examples
 
 The output directory contains `genesis/`, `pools/`, `utxo-keys/`, and
 `metadata.json`. The metadata records deterministic input and artifact digests.
+
+## ChainDB Seed Synthesis
+
+Synthesis is an optional scenario feature. A synthesis-enabled bake will keep
+the existing genesis, pool, faucet, and metadata outputs and add:
+
+- `chain-db/` with the immutable synthesized seed
+- `synthesis-report.json` with wall time, ChainDB size on disk, packaged-size
+  proxy, file count, scenario identity, input digest, and baker version
+
+The deterministic seed output is derived from the scenario, baker version, and
+pinned dependencies. Host-dependent observations, such as wall time, are kept in
+the synthesis report rather than deterministic metadata.
+
+Inspect the pinned upstream synthesizer exposed by this flake:
+
+```sh
+nix run .#db-synthesizer -- --help
+```
+
+The compose seed acceptance flow copies generated assets and the ChainDB seed
+into private writable runtime storage before starting `cardano-node`. The
+generated artifact directory remains immutable during acceptance.
 
 ## Determinism
 
