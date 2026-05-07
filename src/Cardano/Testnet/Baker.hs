@@ -15,6 +15,7 @@ module Cardano.Testnet.Baker
     , module Cardano.Testnet.Baker.Keys
     , module Cardano.Testnet.Baker.Metadata
     , module Cardano.Testnet.Baker.Scenario
+    , module Cardano.Testnet.Baker.Synthesis
     , module Cardano.Testnet.Baker.TextEnvelope
     , module Cardano.Testnet.Baker.Validation
     , module Cardano.Testnet.Baker.Version
@@ -27,6 +28,7 @@ import Cardano.Testnet.Baker.Genesis
 import Cardano.Testnet.Baker.Keys
 import Cardano.Testnet.Baker.Metadata
 import Cardano.Testnet.Baker.Scenario
+import Cardano.Testnet.Baker.Synthesis
 import Cardano.Testnet.Baker.TextEnvelope
 import Cardano.Testnet.Baker.Validation
 import Cardano.Testnet.Baker.Version

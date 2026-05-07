@@ -49,6 +49,7 @@ library
     Cardano.Testnet.Baker.Keys
     Cardano.Testnet.Baker.Metadata
     Cardano.Testnet.Baker.Scenario
+    Cardano.Testnet.Baker.Synthesis
     Cardano.Testnet.Baker.TextEnvelope
     Cardano.Testnet.Baker.Validation
     Cardano.Testnet.Baker.Version
@@ -93,6 +94,7 @@ test-suite unit-tests
     Cardano.Testnet.Baker.KeysSpec
     Cardano.Testnet.Baker.MetadataSpec
     Cardano.Testnet.Baker.ScenarioSpec
+    Cardano.Testnet.Baker.SynthesisSpec
     Cardano.Testnet.Baker.VersionSpec
 
   build-depends:
