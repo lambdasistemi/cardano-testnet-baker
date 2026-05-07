@@ -10,12 +10,12 @@
 
 **Purpose**: Add the pinned Cardano/Nix/tooling surface needed by every user story.
 
-- [ ] T001 Add `iohkNix` and `CHaP` flake inputs plus crypto and haskell.nix overlays in `flake.nix`
-- [ ] T002 Update `nix/project.nix` to accept `CHaP`, map `https://chap.intersectmbo.org/`, and add crypto pkg-config overrides
-- [ ] T003 Add CHaP repository, index-state, cardano package constraints, and any SHA-pinned source packages in `cabal.project`
-- [ ] T004 Add Haskell dependencies and exposed library modules for Feature 001 in `cardano-testnet-baker.cabal`
-- [ ] T005 Add `check-jsonschema`, Docker Compose tooling, `jq`, and shellcheck support to `nix/shell.nix`
-- [ ] T006 Create implementation directories `src/Cardano/Testnet/Baker/`, `schemas/scenario/`, `examples/scenarios/`, and `compose/acceptance/`
+- [x] T001 Add `iohkNix` and `CHaP` flake inputs plus crypto and haskell.nix overlays in `flake.nix`
+- [x] T002 Update `nix/project.nix` to accept `CHaP`, map `https://chap.intersectmbo.org/`, and add crypto pkg-config overrides
+- [x] T003 Add CHaP repository, index-state, cardano package constraints, and any SHA-pinned source packages in `cabal.project`
+- [x] T004 Add Haskell dependencies and exposed library modules for Feature 001 in `cardano-testnet-baker.cabal`
+- [x] T005 Add `check-jsonschema`, Docker Compose tooling, `jq`, and shellcheck support to `nix/shell.nix`
+- [x] T006 Create implementation directories `src/Cardano/Testnet/Baker/`, `schemas/scenario/`, `examples/scenarios/`, and `compose/acceptance/`
 
 ## Phase 2: Foundational
 

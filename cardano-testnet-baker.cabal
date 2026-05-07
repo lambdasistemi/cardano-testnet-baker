@@ -42,9 +42,30 @@ library
   hs-source-dirs:   src
   exposed-modules:
     Cardano.Testnet.Baker
+    Cardano.Testnet.Baker.Bake
+    Cardano.Testnet.Baker.CLI
+    Cardano.Testnet.Baker.Determinism
+    Cardano.Testnet.Baker.Genesis
+    Cardano.Testnet.Baker.Keys
+    Cardano.Testnet.Baker.Metadata
+    Cardano.Testnet.Baker.Scenario
+    Cardano.Testnet.Baker.TextEnvelope
+    Cardano.Testnet.Baker.Validation
     Cardano.Testnet.Baker.Version
 
-  build-depends:    base >=4.18 && <5
+  build-depends:
+    , aeson                 >=2.2 && <2.3
+    , base                  >=4.18 && <5
+    , bytestring            >=0.12 && <0.13
+    , cardano-api           ==10.26.0.0
+    , cardano-crypto-class  ==2.3.2.0
+    , cardano-crypto-praos  ==2.2.2.0
+    , containers            >=0.7 && <0.8
+    , crypton               >=1.0 && <1.1
+    , directory             >=1.3 && <1.4
+    , filepath              >=1.5 && <1.6
+    , memory                >=0.18 && <0.19
+    , text                  >=2.1 && <2.2
 
 executable cardano-testnet-baker
   import:           warnings, language
