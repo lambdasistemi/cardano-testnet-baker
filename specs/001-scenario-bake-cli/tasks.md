@@ -94,18 +94,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T039 [P] [US3] Add failing compose harness script validation tests in `test/Cardano/Testnet/Baker/ComposeAcceptanceSpec.hs`
-- [ ] T040 [US3] Add failing acceptance command contract checks in `test/Cardano/Testnet/Baker/ComposeAcceptanceSpec.hs`
-- [ ] T041 [US3] Add failing runtime start-time patch tests in `test/Cardano/Testnet/Baker/ComposeAcceptanceSpec.hs`
+- [x] T039 [P] [US3] Add failing compose harness script validation tests in `test/Cardano/Testnet/Baker/ComposeAcceptanceSpec.hs`
+- [x] T040 [US3] Add failing acceptance command contract checks in `test/Cardano/Testnet/Baker/ComposeAcceptanceSpec.hs`
+- [x] T041 [US3] Add failing runtime start-time patch tests in `test/Cardano/Testnet/Baker/ComposeAcceptanceSpec.hs`
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Create the minimal acceptance cluster definition in `compose/acceptance/docker-compose.yaml`
-- [ ] T043 [US3] Pin the acceptance `cardano-node` image by digest or SHA-pinned Nix input in `compose/acceptance/docker-compose.yaml`
-- [ ] T044 [US3] Implement runtime-only `systemStart` and Byron `startTime` patching in `compose/acceptance/patch-system-start.sh`
-- [ ] T045 [US3] Implement compose setup, wait, log capture, verdict, and cleanup in `compose/acceptance/run.sh`
-- [ ] T046 [US3] Add static topology/config fixtures needed by the acceptance cluster in `compose/acceptance/topology/`
-- [ ] T047 [US3] Add `just bake-examples`, `just acceptance-local-fast`, and `just acceptance-normal` recipes in `justfile`
+- [x] T042 [US3] Create the minimal acceptance cluster definition in `compose/acceptance/docker-compose.yaml`
+- [x] T043 [US3] Pin the acceptance `cardano-node` image by digest or SHA-pinned Nix input in `compose/acceptance/docker-compose.yaml`
+- [x] T044 [US3] Implement runtime-only `systemStart` and Byron `startTime` patching in `compose/acceptance/patch-system-start.sh`
+- [x] T045 [US3] Implement compose setup, wait, log capture, verdict, and cleanup in `compose/acceptance/run.sh`
+- [x] T046 [US3] Add static topology/config fixtures needed by the acceptance cluster in `compose/acceptance/topology/`
+- [x] T047 [US3] Add `just bake-examples`, `just acceptance-local-fast`, and `just acceptance-normal` recipes in `justfile`
 - [ ] T048 [US3] Add Nix checks for two-run example bakes and recursive diffs in `nix/checks.nix`
 - [ ] T049 [US3] Add Nix/CI hooks for compose acceptance of `local-fast` and `normal` in `nix/checks.nix`
 - [ ] T050 [US3] Update GitHub Actions to run schema, bake determinism, and compose acceptance jobs after Build Gate in `.github/workflows/ci.yml`

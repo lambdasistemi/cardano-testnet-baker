@@ -75,6 +75,40 @@ bake-local-fast out="tmp/bakes/local-fast":
         --scenario examples/scenarios/local-fast.json \
         --out "{{ out }}"
 
+# Bake both committed scenarios into scratch output directories.
+bake-examples out="tmp/bakes":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}/local-fast" "{{ out }}/normal"
+    mkdir -p "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/local-fast.json \
+        --out "{{ out }}/local-fast"
+    nix run . -- bake \
+        --scenario examples/scenarios/normal.json \
+        --out "{{ out }}/normal"
+
+# Run compose acceptance for the local-fast example.
+acceptance-local-fast out="tmp/bakes/local-fast":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d "{{ out }}" ]]; then
+        just bake-local-fast "{{ out }}"
+    fi
+    compose/acceptance/run.sh local-fast "{{ out }}"
+
+# Run compose acceptance for the normal example.
+acceptance-normal out="tmp/bakes/normal":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d "{{ out }}" ]]; then
+        rm -rf "{{ out }}"
+        nix run . -- bake \
+            --scenario examples/scenarios/normal.json \
+            --out "{{ out }}"
+    fi
+    compose/acceptance/run.sh normal "{{ out }}"
+
 # Local mirror of the CI pipeline.
 CI:
     #!/usr/bin/env bash
