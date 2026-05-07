@@ -1,5 +1,7 @@
 # Quickstart: ChainDB Seed Synthesis Measurement MVP
 
+Tracking issue: [#8 ChainDB seed synthesis measurement MVP](https://github.com/lambdasistemi/cardano-testnet-baker/issues/8).
+
 ## 1. Validate Scenarios
 
 ```bash
