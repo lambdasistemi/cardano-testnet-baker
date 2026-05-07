@@ -13,6 +13,7 @@ module Cardano.Testnet.Baker.ScenarioSpec
 import Cardano.Testnet.Baker.Scenario
     ( Scenario (..)
     , ScenarioGenesis (..)
+    , SynthesisRequest (..)
     , decodeScenarioBytes
     )
 import Cardano.Testnet.Baker.Validation
@@ -41,6 +42,31 @@ spec = describe "Scenario decoding and validation" $ do
         scenarioScenarioId <$> decoded `shouldBe` Right "local-fast"
         scenarioGenesisEpochLength . scenarioGenesis <$> decoded
             `shouldBe` Right 120
+
+    it "decodes an optional synthesis request" $ do
+        let decoded = decodeScenarioBytes scenarioWithSynthesis
+        scenarioSynthesis <$> decoded
+            `shouldBe` Right
+                ( Just
+                    ( SynthesisRequest
+                        { synthesisEnabled = True
+                        , synthesisSlotCount = Just 720
+                        , synthesisProfile = Just "local-fast-ci"
+                        }
+                    )
+                )
+
+    it "decodes an omitted synthesis request as Nothing" $ do
+        let decoded = decodeScenarioBytes minimalScenario
+        scenarioSynthesis <$> decoded `shouldBe` Right Nothing
+
+    it "rejects unknown synthesis request fields" $
+        decodeScenarioBytes scenarioWithUnknownSynthesisField
+            `shouldSatisfy` isLeft
+
+    it "rejects synthesis without an enabled flag" $
+        decodeScenarioBytes scenarioWithSynthesisMissingEnabled
+            `shouldSatisfy` isLeft
 
     it "validates a minimal scenario" $ do
         let Right scenario = decodeScenarioBytes minimalScenario
@@ -160,6 +186,48 @@ scenarioWithSystemStart =
     \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000,\"systemStart\":\"2026-05-07T00:00:00Z\"},\
     \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
     \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}]\
+    \}"
+
+scenarioWithSynthesis :: ByteString
+scenarioWithSynthesis =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"synthesis-request\",\
+    \\"seed\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
+    \\"synthesis\":{\"enabled\":true,\"slotCount\":720,\"profile\":\"local-fast-ci\"}\
+    \}"
+
+scenarioWithUnknownSynthesisField :: ByteString
+scenarioWithUnknownSynthesisField =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"bad-synthesis-field\",\
+    \\"seed\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
+    \\"synthesis\":{\"enabled\":true,\"slotCount\":720,\"unexpected\":true}\
+    \}"
+
+scenarioWithSynthesisMissingEnabled :: ByteString
+scenarioWithSynthesisMissingEnabled =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"bad-synthesis-missing-enabled\",\
+    \\"seed\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}],\
+    \\"synthesis\":{\"slotCount\":720}\
     \}"
 
 loadScenario :: FilePath -> IO Scenario

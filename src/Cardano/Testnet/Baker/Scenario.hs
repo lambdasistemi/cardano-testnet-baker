@@ -14,6 +14,7 @@ module Cardano.Testnet.Baker.Scenario
     , PoolDeclaration (..)
     , Scenario (..)
     , ScenarioGenesis (..)
+    , SynthesisRequest (..)
     , decodeScenarioBytes
     ) where
 
@@ -50,6 +51,8 @@ data Scenario = Scenario
     -- ^ Stake pool declarations.
     , scenarioFaucets :: [FaucetDeclaration]
     -- ^ Faucet funding declarations.
+    , scenarioSynthesis :: Maybe SynthesisRequest
+    -- ^ Optional ChainDB synthesis request.
     }
     deriving (Eq, Show)
 
@@ -65,6 +68,7 @@ instance FromJSON Scenario where
             , "genesis"
             , "pools"
             , "faucets"
+            , "synthesis"
             ]
             object
         Scenario
@@ -76,6 +80,29 @@ instance FromJSON Scenario where
             <*> object .: "genesis"
             <*> object .: "pools"
             <*> object .: "faucets"
+            <*> object .:? "synthesis"
+
+-- | Optional request to synthesize a ChainDB seed during bake.
+data SynthesisRequest = SynthesisRequest
+    { synthesisEnabled :: Bool
+    -- ^ Whether ChainDB synthesis is requested.
+    , synthesisSlotCount :: Maybe Int
+    -- ^ Slot count to synthesize; semantically required when enabled.
+    , synthesisProfile :: Maybe Text
+    -- ^ Optional human-readable measurement profile label.
+    }
+    deriving (Eq, Show)
+
+instance FromJSON SynthesisRequest where
+    parseJSON = withObject "SynthesisRequest" $ \object -> do
+        rejectUnknownKeys
+            "SynthesisRequest"
+            ["enabled", "slotCount", "profile"]
+            object
+        SynthesisRequest
+            <$> object .: "enabled"
+            <*> object .:? "slotCount"
+            <*> object .:? "profile"
 
 -- | Network identity for generated genesis and node configuration.
 data Network = Network
