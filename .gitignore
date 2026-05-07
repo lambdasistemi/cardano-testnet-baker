@@ -1,0 +1,9 @@
+.direnv/
+result
+result-*
+out/
+tmp/
+dist-newstyle/
+*.log
+WIP.md
+.llm/

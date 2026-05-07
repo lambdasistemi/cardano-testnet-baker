@@ -1,0 +1,11 @@
+-- This project will eventually consume CHaP for cardano-* packages
+-- (db-synthesizer wrapping, ledger types). Keep the file ready for
+-- that, but for the initial scaffold no cardano-* dependency is in
+-- scope yet, so we point at hackage only.
+--
+-- index-state is pinned per Constitution Principle III (no moving
+-- references). Bump in a dedicated dependency-bump PR.
+index-state:
+  , hackage.haskell.org 2026-04-30T00:00:00Z
+
+packages: .

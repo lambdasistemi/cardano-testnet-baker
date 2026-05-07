@@ -1,0 +1,7 @@
+# HLint configuration for cardano-testnet-baker.
+# Override or relax as the codebase grows; defaults are sensible.
+
+- arguments: [-XQuasiQuotes, -XTypeApplications]
+
+# We use leading commas (matches fourmolu); allow them in record syntax.
+- ignore: { name: "Use list comprehension" }
