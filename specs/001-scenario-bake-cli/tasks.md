@@ -30,9 +30,9 @@
 - [x] T011 Implement semantic validation errors for required invariants in `src/Cardano/Testnet/Baker/Validation.hs`
 - [x] T012 Implement HKDF/HMAC deterministic derivation helpers in `src/Cardano/Testnet/Baker/Determinism.hs`
 - [x] T013 Implement canonical JSON/digest helpers and metadata types in `src/Cardano/Testnet/Baker/Metadata.hs`
-- [ ] T014 Add CLI parser skeleton for `scenario validate` and `bake` in `src/Cardano/Testnet/Baker/CLI.hs`
-- [ ] T015 Wire the new CLI parser through `app/Main.hs`
-- [ ] T016 Export new library modules from `src/Cardano/Testnet/Baker.hs` and register new spec modules in `cardano-testnet-baker.cabal`
+- [x] T014 Add CLI parser skeleton for `scenario validate` and `bake` in `src/Cardano/Testnet/Baker/CLI.hs`
+- [x] T015 Wire the new CLI parser through `app/Main.hs`
+- [x] T016 Export new library modules from `src/Cardano/Testnet/Baker.hs` and register new spec modules in `cardano-testnet-baker.cabal`
 
 **Checkpoint**: Scenario decoding, semantic validation, deterministic derivation, metadata digests, and CLI command parsing all have failing tests ready for implementation.
 
