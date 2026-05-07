@@ -48,6 +48,7 @@ import Control.Exception
     )
 import Control.Monad (when)
 import Data.Aeson (Value, object, (.=))
+import Data.Bits ((.|.))
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
@@ -67,8 +68,14 @@ import System.Directory
     )
 import System.FilePath
     ( takeDirectory
+    , takeExtension
     , takeFileName
     , (</>)
+    )
+import System.Posix.Files
+    ( ownerReadMode
+    , ownerWriteMode
+    , setFileMode
     )
 
 -- | Inputs for one deterministic bake.
@@ -183,6 +190,8 @@ writeArtifact stageDir scenario keyArtifacts relativePath = do
         fromMaybe
             (placeholderArtifact scenario relativePath)
             (lookup relativePath keyArtifacts)
+    when (isPrivateKeyPath relativePath) $
+        setFileMode path (ownerReadMode .|. ownerWriteMode)
 
 keyArtifactBytes :: Scenario -> [(FilePath, LBS.ByteString)]
 keyArtifactBytes scenario =
@@ -313,3 +322,7 @@ removeIfExists path = do
     exists <- doesPathExist path
     when exists $
         removePathForcibly path
+
+isPrivateKeyPath :: FilePath -> Bool
+isPrivateKeyPath path =
+    takeExtension path == ".skey"

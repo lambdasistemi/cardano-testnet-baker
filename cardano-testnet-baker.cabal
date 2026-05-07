@@ -67,6 +67,7 @@ library
     , memory                >=0.18 && <0.19
     , optparse-applicative  >=0.19 && <0.20
     , text                  >=2.1 && <2.2
+    , unix                  >=2.8 && <2.9
 
 executable cardano-testnet-baker
   import:           warnings, language
@@ -102,6 +103,7 @@ test-suite unit-tests
     , filepath              >=1.5 && <1.6
     , hspec
     , text                  >=2.1 && <2.2
+    , unix                  >=2.8 && <2.9
 
   build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N

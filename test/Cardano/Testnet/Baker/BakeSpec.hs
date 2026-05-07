@@ -32,6 +32,7 @@ import Data.Aeson
     )
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Bits ((.&.), (.|.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
@@ -45,6 +46,17 @@ import System.Directory
     , removePathForcibly
     )
 import System.FilePath ((</>))
+import System.Posix.Files
+    ( fileMode
+    , getFileStatus
+    , groupExecuteMode
+    , groupReadMode
+    , groupWriteMode
+    , otherExecuteMode
+    , otherReadMode
+    , otherWriteMode
+    )
+import System.Posix.Types (FileMode)
 import Test.Hspec
     ( Spec
     , describe
@@ -172,6 +184,19 @@ spec = describe "bake output layout" $ do
                     outputDir </> "pools/pool-a/keys/cold.skey"
             coldKey `shouldSatisfy` isTextEnvelope
 
+    it "restricts private signing key file permissions" $
+        withScratch "private-key-permissions" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            assertNoGroupOrOtherPermissions $
+                outputDir </> "pools/pool-a/keys/vrf.skey"
+            assertNoGroupOrOtherPermissions $
+                outputDir </> "pools/pool-a/keys/kes.skey"
+
     it "renders deterministic genesis and node config artifacts" $
         withScratch "genesis-config" $ \root -> do
             (scenarioBytes, scenario) <- loadMinimalScenario
@@ -264,6 +289,11 @@ artifactDigest root relativePath = do
     bytes <- LBS.readFile (root </> relativePath)
     pure (relativePath, digestBytes (LBS.toStrict bytes))
 
+assertNoGroupOrOtherPermissions :: FilePath -> IO ()
+assertNoGroupOrOtherPermissions path = do
+    status <- getFileStatus path
+    fileMode status .&. nonOwnerModes `shouldBe` 0
+
 runBake
     :: LBS.ByteString
     -> Scenario
@@ -290,6 +320,15 @@ removeIfExists path = do
     exists <- doesPathExist path
     when exists $
         removePathForcibly path
+
+nonOwnerModes :: FileMode
+nonOwnerModes =
+    groupReadMode
+        .|. groupWriteMode
+        .|. groupExecuteMode
+        .|. otherReadMode
+        .|. otherWriteMode
+        .|. otherExecuteMode
 
 assertEqualTrees :: FilePath -> FilePath -> IO ()
 assertEqualTrees left right = do
