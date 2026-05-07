@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "normal",
+  "seed": "f0e0d0c0b0a090807060504030201000",
+  "network": {
+    "networkMagic": 1,
+    "networkId": "Testnet"
+  },
+  "eraSchedule": {
+    "shelley": 0,
+    "alonzo": 0,
+    "conway": 0
+  },
+  "genesis": {
+    "epochLength": 86400,
+    "activeSlotsCoeff": 0.05,
+    "securityParam": 432,
+    "k": 2160,
+    "maxLovelaceSupply": 45000000000000000
+  },
+  "pools": [
+    {
+      "label": "pool-a",
+      "pledge": 1000000000,
+      "cost": 340000000,
+      "margin": 0.05,
+      "stake": 1000000000,
+      "coldKeyLabel": "pool-a-cold",
+      "vrfKeyLabel": "pool-a-vrf",
+      "kesKeyLabel": "pool-a-kes",
+      "stakeKeyLabel": "pool-a-stake"
+    },
+    {
+      "label": "pool-b",
+      "pledge": 1000000000,
+      "cost": 340000000,
+      "margin": 0.05,
+      "stake": 1000000000,
+      "coldKeyLabel": "pool-b-cold",
+      "vrfKeyLabel": "pool-b-vrf",
+      "kesKeyLabel": "pool-b-kes",
+      "stakeKeyLabel": "pool-b-stake"
+    },
+    {
+      "label": "pool-c",
+      "pledge": 1000000000,
+      "cost": 340000000,
+      "margin": 0.05,
+      "stake": 1000000000,
+      "coldKeyLabel": "pool-c-cold",
+      "vrfKeyLabel": "pool-c-vrf",
+      "kesKeyLabel": "pool-c-kes",
+      "stakeKeyLabel": "pool-c-stake"
+    }
+  ],
+  "faucets": [
+    {
+      "label": "genesis.1",
+      "paymentKeyLabel": "genesis.1-payment",
+      "lovelace": 1000000000000
+    }
+  ]
+}

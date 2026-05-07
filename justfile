@@ -54,7 +54,17 @@ build-gate:
     nix build --quiet \
         .#default \
         .#unit-tests \
+        .#checks.x86_64-linux.scenario-schema \
         .#devShells.x86_64-linux.default.inputDerivation
+
+# Validate committed scenario examples against the published schema.
+validate-scenarios:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    check-jsonschema \
+        --schemafile schemas/scenario/v1.schema.json \
+        examples/scenarios/local-fast.json \
+        examples/scenarios/normal.json
 
 # Local mirror of the CI pipeline.
 CI:
@@ -63,4 +73,5 @@ CI:
     just build-gate
     just format-check
     just hlint
+    just validate-scenarios
     nix run .#unit-tests --quiet

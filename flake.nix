@@ -44,7 +44,7 @@
 
         project = import ./nix/project.nix { inherit pkgs CHaP; };
         shell = import ./nix/shell.nix { inherit pkgs project; };
-        checks = import ./nix/checks.nix { inherit project; };
+        checks = import ./nix/checks.nix { inherit pkgs project; };
 
         flakePkgs = project.flake { };
       in {

@@ -21,6 +21,8 @@ in pkgs.haskell-nix.cabalProject' {
       || builtins.match ".*/src(/.*)?$" path != null
       || builtins.match ".*/app(/.*)?$" path != null
       || builtins.match ".*/test(/.*)?$" path != null
+      || builtins.match ".*/examples(/.*)?$" path != null
+      || builtins.match ".*/schemas(/.*)?$" path != null
       || builtins.match ".*/cabal\\.project$" path != null
       || builtins.match ".*/LICENSE$" path != null;
   };

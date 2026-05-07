@@ -21,6 +21,7 @@ import Cardano.Testnet.Baker.Validation
     , validateScenario
     )
 import Data.ByteString.Lazy (ByteString)
+import Data.ByteString.Lazy qualified as LBS
 import Data.Either (isLeft)
 import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
@@ -36,6 +37,23 @@ spec = describe "Scenario decoding and validation" $ do
         let Right scenario = decodeScenarioBytes minimalScenario
         validateScenario scenario
             `shouldBe` Right (ValidatedScenario scenario)
+
+    it "validates the committed local-fast scenario" $ do
+        scenario <- loadScenario "examples/scenarios/local-fast.json"
+        validateScenario scenario
+            `shouldBe` Right (ValidatedScenario scenario)
+        scenarioGenesisEpochLength (scenarioGenesis scenario)
+            `shouldBe` 120
+
+    it "validates the committed normal scenario" $ do
+        scenario <- loadScenario "examples/scenarios/normal.json"
+        validateScenario scenario
+            `shouldBe` Right (ValidatedScenario scenario)
+        scenarioGenesisEpochLength (scenarioGenesis scenario)
+            `shouldBe` 86400
+        scenarioGenesisK (scenarioGenesis scenario) `shouldBe` 2160
+        scenarioGenesisActiveSlotsCoeff (scenarioGenesis scenario)
+            `shouldBe` 0.05
 
     it "rejects duplicate pool labels after normalization" $ do
         let Right scenario = decodeScenarioBytes duplicatePoolLabels
@@ -101,3 +119,10 @@ scenarioWithSystemStart =
     \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1000000,\"cost\":340000000,\"margin\":0.05,\"stake\":100000000,\"coldKeyLabel\":\"pool-a-cold\",\"vrfKeyLabel\":\"pool-a-vrf\",\"kesKeyLabel\":\"pool-a-kes\",\"stakeKeyLabel\":\"pool-a-stake\"}],\
     \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"genesis.1\",\"lovelace\":1000000}]\
     \}"
+
+loadScenario :: FilePath -> IO Scenario
+loadScenario path = do
+    bytes <- LBS.readFile path
+    case decodeScenarioBytes bytes of
+        Left err -> fail err
+        Right scenario -> pure scenario

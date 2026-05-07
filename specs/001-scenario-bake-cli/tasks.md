@@ -70,18 +70,18 @@
 
 ### Tests for User Story 2
 
-- [ ] T029 [P] [US2] Add failing schema validation check wiring for committed examples in `nix/checks.nix`
-- [ ] T030 [P] [US2] Add failing `local-fast` and `normal` semantic validation tests in `test/Cardano/Testnet/Baker/ScenarioSpec.hs`
+- [x] T029 [P] [US2] Add failing schema validation check wiring for committed examples in `nix/checks.nix`
+- [x] T030 [P] [US2] Add failing `local-fast` and `normal` semantic validation tests in `test/Cardano/Testnet/Baker/ScenarioSpec.hs`
 - [ ] T031 [P] [US2] Add failing CLI validation tests for valid and invalid scenario files in `test/Cardano/Testnet/Baker/CLISpec.hs`
 
 ### Implementation for User Story 2
 
-- [ ] T032 [US2] Publish the v1 scenario JSON Schema in `schemas/scenario/v1.schema.json`
-- [ ] T033 [US2] Add the `local-fast` example scenario in `examples/scenarios/local-fast.json`
-- [ ] T034 [US2] Add the `normal` example scenario in `examples/scenarios/normal.json`
+- [x] T032 [US2] Publish the v1 scenario JSON Schema in `schemas/scenario/v1.schema.json`
+- [x] T033 [US2] Add the `local-fast` example scenario in `examples/scenarios/local-fast.json`
+- [x] T034 [US2] Add the `normal` example scenario in `examples/scenarios/normal.json`
 - [ ] T035 [US2] Implement `scenario validate` semantic validation output in `src/Cardano/Testnet/Baker/CLI.hs`
-- [ ] T036 [US2] Add `check-jsonschema` example validation to `nix/checks.nix`
-- [ ] T037 [US2] Add `just validate-scenarios` and include it in `just CI` in `justfile`
+- [x] T036 [US2] Add `check-jsonschema` example validation to `nix/checks.nix`
+- [x] T037 [US2] Add `just validate-scenarios` and include it in `just CI` in `justfile`
 - [ ] T038 [US2] Update example scenario documentation in `README.md`
 
 **Checkpoint**: User Story 2 works independently: the public schema and both examples validate without needing compose acceptance.

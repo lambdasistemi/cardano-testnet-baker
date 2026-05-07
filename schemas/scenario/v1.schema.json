@@ -1,0 +1,196 @@
+{
+  "$id": "https://github.com/lambdasistemi/cardano-testnet-baker/schemas/scenario/v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cardano-testnet-baker scenario v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "scenarioId",
+    "seed",
+    "network",
+    "eraSchedule",
+    "genesis",
+    "pools",
+    "faucets"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "scenarioId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "seed": {
+      "type": "string",
+      "minLength": 2,
+      "pattern": "^[0-9a-fA-F]+$"
+    },
+    "network": {
+      "$ref": "#/$defs/network"
+    },
+    "eraSchedule": {
+      "$ref": "#/$defs/eraSchedule"
+    },
+    "genesis": {
+      "$ref": "#/$defs/genesis"
+    },
+    "pools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/pool"
+      }
+    },
+    "faucets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/faucet"
+      }
+    }
+  },
+  "$defs": {
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["networkMagic", "networkId"],
+      "properties": {
+        "networkMagic": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "networkId": {
+          "enum": ["Mainnet", "Testnet"]
+        }
+      }
+    },
+    "eraSchedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shelley", "alonzo", "conway"],
+      "properties": {
+        "shelley": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "alonzo": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conway": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "genesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "epochLength",
+        "activeSlotsCoeff",
+        "securityParam",
+        "k",
+        "maxLovelaceSupply"
+      ],
+      "properties": {
+        "epochLength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "activeSlotsCoeff": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "securityParam": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "k": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxLovelaceSupply": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "pool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "pledge",
+        "cost",
+        "margin",
+        "stake",
+        "coldKeyLabel",
+        "vrfKeyLabel",
+        "kesKeyLabel",
+        "stakeKeyLabel"
+      ],
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/label"
+        },
+        "pledge": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "margin": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "stake": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coldKeyLabel": {
+          "$ref": "#/$defs/label"
+        },
+        "vrfKeyLabel": {
+          "$ref": "#/$defs/label"
+        },
+        "kesKeyLabel": {
+          "$ref": "#/$defs/label"
+        },
+        "stakeKeyLabel": {
+          "$ref": "#/$defs/label"
+        }
+      }
+    },
+    "faucet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "paymentKeyLabel", "lovelace"],
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/label"
+        },
+        "paymentKeyLabel": {
+          "$ref": "#/$defs/label"
+        },
+        "lovelace": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "metadata": true
+      }
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    }
+  }
+}

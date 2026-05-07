@@ -29,6 +29,7 @@ jobs:
           nix build --quiet
           .#default
           .#unit-tests
+          .#checks.x86_64-linux.scenario-schema
           .#devShells.x86_64-linux.default.inputDerivation
 
   unit-tests:

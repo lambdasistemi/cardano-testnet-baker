@@ -1,6 +1,18 @@
-{ project }:
+{ pkgs, project }:
 
-# Flake checks: each is a derivation. Currently only the unit-tests
-# suite. Future feature specs add scenario-baking checks here.
+# Flake checks: each is a derivation.
 let flakePkgs = project.flake { };
-in { unit-tests = flakePkgs.packages."cardano-testnet-baker:test:unit-tests"; }
+in {
+  unit-tests = flakePkgs.packages."cardano-testnet-baker:test:unit-tests";
+
+  scenario-schema = pkgs.runCommand "scenario-schema-validation" {
+    nativeBuildInputs = [ pkgs.check-jsonschema ];
+    src = ../.;
+  } ''
+    check-jsonschema \
+      --schemafile "$src/schemas/scenario/v1.schema.json" \
+      "$src/examples/scenarios/local-fast.json" \
+      "$src/examples/scenarios/normal.json"
+    touch "$out"
+  '';
+}
