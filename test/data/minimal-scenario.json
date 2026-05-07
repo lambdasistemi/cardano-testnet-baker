@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "minimal",
+  "seed": "000102030405060708090a0b0c0d0e0f",
+  "network": {
+    "networkMagic": 42,
+    "networkId": "Testnet"
+  },
+  "eraSchedule": {
+    "shelley": 0,
+    "alonzo": 0,
+    "conway": 0
+  },
+  "genesis": {
+    "epochLength": 120,
+    "activeSlotsCoeff": 0.05,
+    "securityParam": 10,
+    "k": 1,
+    "maxLovelaceSupply": 45000000000000000
+  },
+  "pools": [
+    {
+      "label": "pool-a",
+      "pledge": 1000000000,
+      "cost": 340000000,
+      "margin": 0.05,
+      "stake": 1000000000,
+      "coldKeyLabel": "pool-a-cold",
+      "vrfKeyLabel": "pool-a-vrf",
+      "kesKeyLabel": "pool-a-kes",
+      "stakeKeyLabel": "pool-a-stake"
+    }
+  ],
+  "faucets": [
+    {
+      "label": "faucet",
+      "paymentKeyLabel": "faucet-payment",
+      "lovelace": 1000000000
+    }
+  ]
+}

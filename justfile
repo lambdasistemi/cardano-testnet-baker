@@ -54,7 +54,63 @@ build-gate:
     nix build --quiet \
         .#default \
         .#unit-tests \
+        .#checks.x86_64-linux.cabal-check \
+        .#checks.x86_64-linux.haddock \
+        .#checks.x86_64-linux.scenario-schema \
+        .#checks.x86_64-linux.example-bake-determinism \
         .#devShells.x86_64-linux.default.inputDerivation
+
+# Validate committed scenario examples against the published schema.
+validate-scenarios:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    check-jsonschema \
+        --schemafile schemas/scenario/v1.schema.json \
+        examples/scenarios/local-fast.json \
+        examples/scenarios/normal.json
+
+# Bake the local-fast example into a scratch output directory.
+bake-local-fast out="tmp/bakes/local-fast":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/local-fast.json \
+        --out "{{ out }}"
+
+# Bake both committed scenarios into scratch output directories.
+bake-examples out="tmp/bakes":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}/local-fast" "{{ out }}/normal"
+    mkdir -p "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/local-fast.json \
+        --out "{{ out }}/local-fast"
+    nix run . -- bake \
+        --scenario examples/scenarios/normal.json \
+        --out "{{ out }}/normal"
+
+# Run compose acceptance for the local-fast example.
+acceptance-local-fast out="tmp/bakes/local-fast":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d "{{ out }}" ]]; then
+        just bake-local-fast "{{ out }}"
+    fi
+    compose/acceptance/run.sh local-fast "{{ out }}"
+
+# Run compose acceptance for the normal example.
+acceptance-normal out="tmp/bakes/normal":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d "{{ out }}" ]]; then
+        rm -rf "{{ out }}"
+        nix run . -- bake \
+            --scenario examples/scenarios/normal.json \
+            --out "{{ out }}"
+    fi
+    compose/acceptance/run.sh normal "{{ out }}"
 
 # Local mirror of the CI pipeline.
 CI:
@@ -63,4 +119,9 @@ CI:
     just build-gate
     just format-check
     just hlint
+    just validate-scenarios
     nix run .#unit-tests --quiet
+    rm -rf tmp/ci-acceptance
+    just bake-examples tmp/ci-acceptance/bakes
+    just acceptance-local-fast tmp/ci-acceptance/bakes/local-fast
+    just acceptance-normal tmp/ci-acceptance/bakes/normal

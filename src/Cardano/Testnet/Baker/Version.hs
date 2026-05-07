@@ -1,10 +1,10 @@
 {- |
-Module      : CardanoTestnetBaker.Version
+Module      : Cardano.Testnet.Baker.Version
 Description : Compile-time version of the @cardano-testnet-baker@ library.
 Copyright   : (c) Paolo Veronelli, 2026
 License     : Apache-2.0
 -}
-module CardanoTestnetBaker.Version
+module Cardano.Testnet.Baker.Version
     ( libraryVersion
     ) where
 

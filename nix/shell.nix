@@ -12,6 +12,8 @@ project.shellFor {
     haskell-language-server = { };
   };
   buildInputs = with pkgs; [
+    check-jsonschema
+    docker-compose
     just
     jq
     nixfmt-classic
