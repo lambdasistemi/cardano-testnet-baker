@@ -84,6 +84,7 @@ test-suite unit-tests
   hs-source-dirs:   test
   main-is:          Spec.hs
   other-modules:
+    Cardano.Testnet.Baker.DeterminismSpec
     Cardano.Testnet.Baker.ScenarioSpec
     Cardano.Testnet.Baker.VersionSpec
 

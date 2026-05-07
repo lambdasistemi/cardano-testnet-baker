@@ -24,11 +24,11 @@
 **Critical**: Complete this phase before implementing any user story.
 
 - [x] T007 [P] Add failing scenario decoding and semantic validation tests in `test/Cardano/Testnet/Baker/ScenarioSpec.hs`
-- [ ] T008 [P] Add failing deterministic HKDF/domain-separation tests in `test/Cardano/Testnet/Baker/DeterminismSpec.hs`
+- [x] T008 [P] Add failing deterministic HKDF/domain-separation tests in `test/Cardano/Testnet/Baker/DeterminismSpec.hs`
 - [ ] T009 [P] Add failing canonical metadata digest tests in `test/Cardano/Testnet/Baker/MetadataSpec.hs`
 - [x] T010 Define scenario, pool, faucet, genesis, and output request types plus JSON decoding in `src/Cardano/Testnet/Baker/Scenario.hs`
 - [x] T011 Implement semantic validation errors for required invariants in `src/Cardano/Testnet/Baker/Validation.hs`
-- [ ] T012 Implement HKDF/HMAC deterministic derivation helpers in `src/Cardano/Testnet/Baker/Determinism.hs`
+- [x] T012 Implement HKDF/HMAC deterministic derivation helpers in `src/Cardano/Testnet/Baker/Determinism.hs`
 - [ ] T013 Implement canonical JSON/digest helpers and metadata types in `src/Cardano/Testnet/Baker/Metadata.hs`
 - [ ] T014 Add CLI parser skeleton for `scenario validate` and `bake` in `src/Cardano/Testnet/Baker/CLI.hs`
 - [ ] T015 Wire the new CLI parser through `app/Main.hs`
