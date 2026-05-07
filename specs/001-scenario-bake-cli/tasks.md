@@ -44,18 +44,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T017 [P] [US1] Add failing output layout tests for a minimal valid scenario in `test/Cardano/Testnet/Baker/BakeSpec.hs`
+- [x] T017 [P] [US1] Add failing output layout tests for a minimal valid scenario in `test/Cardano/Testnet/Baker/BakeSpec.hs`
 - [ ] T018 [US1] Add failing non-empty-output and interrupted-staging tests in `test/Cardano/Testnet/Baker/BakeSpec.hs`
 - [ ] T019 [P] [US1] Add failing two-run recursive determinism tests in `test/Cardano/Testnet/Baker/DeterminismSpec.hs`
 - [ ] T020 [US1] Add failing Shelley `initialFunds` faucet funding tests in `test/Cardano/Testnet/Baker/BakeSpec.hs`
-- [ ] T021 [P] [US1] Add the minimal bake test scenario fixture in `test/data/minimal-scenario.json`
+- [x] T021 [P] [US1] Add the minimal bake test scenario fixture in `test/data/minimal-scenario.json`
 
 ### Implementation for User Story 1
 
 - [ ] T022 [US1] Implement Cardano text-envelope rendering helpers in `src/Cardano/Testnet/Baker/TextEnvelope.hs`
 - [ ] T023 [US1] Implement deterministic KES, VRF, cold, stake, op-cert, and faucet key generation in `src/Cardano/Testnet/Baker/Keys.hs`
 - [ ] T024 [US1] Implement Byron, Shelley, Alonzo, Conway, and node config generation in `src/Cardano/Testnet/Baker/Genesis.hs`
-- [ ] T025 [US1] Implement staged artifact writing and atomic publish in `src/Cardano/Testnet/Baker/Bake.hs`
+- [x] T025 [US1] Implement staged artifact writing and atomic publish in `src/Cardano/Testnet/Baker/Bake.hs`
 - [ ] T026 [US1] Implement `metadata.json` writing with artifact digests in `src/Cardano/Testnet/Baker/Metadata.hs`
 - [ ] T027 [US1] Wire the `bake --scenario --out` command in `src/Cardano/Testnet/Baker/CLI.hs`
 - [ ] T028 [US1] Add a `just bake-local-fast` developer recipe in `justfile`
