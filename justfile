@@ -66,6 +66,15 @@ validate-scenarios:
         examples/scenarios/local-fast.json \
         examples/scenarios/normal.json
 
+# Bake the local-fast example into a scratch output directory.
+bake-local-fast out="tmp/bakes/local-fast":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/local-fast.json \
+        --out "{{ out }}"
+
 # Local mirror of the CI pipeline.
 CI:
     #!/usr/bin/env bash

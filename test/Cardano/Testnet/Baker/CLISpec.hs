@@ -8,11 +8,13 @@ module Cardano.Testnet.Baker.CLISpec
     ( spec
     ) where
 
+import Cardano.Testnet.Baker.Bake (BakeOutput (..))
 import Cardano.Testnet.Baker.CLI
     ( BakeOptions (..)
     , Command (..)
     , ScenarioCommand (..)
     , parseCommandArgs
+    , runBakeOptions
     , runScenarioValidate
     )
 import Control.Exception (finally)
@@ -71,12 +73,42 @@ spec = describe "CLI parser" $ do
         runScenarioValidate "examples/scenarios/local-fast.json"
             `shouldReturn` Right ()
 
+    it "bakes a committed scenario file" $
+        withScratch "bake-local-fast" $ \root -> do
+            let outputDir = root </> "local-fast"
+
+            result <-
+                runBakeOptions
+                    BakeOptions
+                        { bakeScenarioPath =
+                            "examples/scenarios/local-fast.json"
+                        , bakeOutputDir = outputDir
+                        }
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            doesPathExist (outputDir </> "metadata.json")
+                `shouldReturn` True
+
     it "returns an error for an invalid scenario file" $
         withScratch "invalid-scenario" $ \root -> do
             let scenarioPath = root </> "bad.json"
             writeFile scenarioPath invalidScenario
 
             runScenarioValidate scenarioPath `shouldSatisfyM` isLeft
+
+    it "rejects baking an invalid scenario without publishing output" $
+        withScratch "invalid-bake" $ \root -> do
+            let scenarioPath = root </> "bad.json"
+                outputDir = root </> "out"
+            writeFile scenarioPath invalidScenario
+
+            runBakeOptions
+                BakeOptions
+                    { bakeScenarioPath = scenarioPath
+                    , bakeOutputDir = outputDir
+                    }
+                `shouldSatisfyM` isLeft
+            doesPathExist outputDir `shouldReturn` False
 
 withScratch :: FilePath -> (FilePath -> IO ()) -> IO ()
 withScratch name action = do

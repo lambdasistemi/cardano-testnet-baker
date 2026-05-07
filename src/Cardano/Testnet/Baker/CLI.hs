@@ -11,10 +11,17 @@ module Cardano.Testnet.Baker.CLI
     , Command (..)
     , ScenarioCommand (..)
     , parseCommandArgs
+    , runBakeOptions
     , runCLI
     , runScenarioValidate
     ) where
 
+import Cardano.Testnet.Baker.Bake
+    ( BakeError (..)
+    , BakeOutput (..)
+    , BakeRequest (..)
+    , bakeScenario
+    )
 import Cardano.Testnet.Baker.Scenario (decodeScenarioBytes)
 import Cardano.Testnet.Baker.Validation
     ( ValidationFailure (..)
@@ -153,8 +160,31 @@ runCommand = \case
         runScenarioValidate scenarioPath >>= \case
             Right () -> putStrLn ("valid scenario: " <> scenarioPath)
             Left err -> die err
-    CommandBake _ ->
-        die "bake execution is introduced by a later feature slice"
+    CommandBake options ->
+        runBakeOptions options >>= \case
+            Right (BakeOutput outputDir) ->
+                putStrLn ("baked artifacts: " <> outputDir)
+            Left err -> die err
+
+-- | Decode, validate, and bake a scenario from CLI options.
+runBakeOptions :: BakeOptions -> IO (Either String BakeOutput)
+runBakeOptions BakeOptions{..} = do
+    scenarioBytes <- LBS.readFile bakeScenarioPath
+    case decodeScenarioBytes scenarioBytes of
+        Left err -> pure (Left ("scenario decode failed: " <> err))
+        Right scenario -> do
+            result <-
+                bakeScenario
+                    BakeRequest
+                        { bakeRequestScenario = scenario
+                        , bakeRequestScenarioBytes = scenarioBytes
+                        , bakeRequestOutputDir = bakeOutputDir
+                        , bakeRequestBakerCommit = "unknown"
+                        }
+            pure $
+                case result of
+                    Right output -> Right output
+                    Left err -> Left (showBakeError err)
 
 -- | Decode and semantically validate a scenario JSON file.
 runScenarioValidate :: FilePath -> IO (Either String ())
@@ -185,3 +215,15 @@ showValidationFailure = \case
             <> show requested
             <> " exceeds max lovelace supply "
             <> show supply
+
+showBakeError :: BakeError -> String
+showBakeError = \case
+    BakeInvalidScenario failures ->
+        "scenario semantic validation failed:\n"
+            <> unlines (("- " <>) . showValidationFailure <$> failures)
+    BakeOutputDirectoryNotEmpty outputDir ->
+        "output directory is not empty: " <> outputDir
+    BakeOutputPathExistsAsFile outputDir ->
+        "output path exists as a file: " <> outputDir
+    BakeIOException outputDir err ->
+        "failed to write bake output at " <> outputDir <> ": " <> err

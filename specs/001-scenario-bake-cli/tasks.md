@@ -56,9 +56,9 @@
 - [x] T023 [US1] Implement deterministic KES, VRF, cold, stake, op-cert, and faucet key generation in `src/Cardano/Testnet/Baker/Keys.hs`
 - [x] T024 [US1] Implement Byron, Shelley, Alonzo, Conway, and node config generation in `src/Cardano/Testnet/Baker/Genesis.hs`
 - [x] T025 [US1] Implement staged artifact writing and atomic publish in `src/Cardano/Testnet/Baker/Bake.hs`
-- [ ] T026 [US1] Implement `metadata.json` writing with artifact digests in `src/Cardano/Testnet/Baker/Metadata.hs`
-- [ ] T027 [US1] Wire the `bake --scenario --out` command in `src/Cardano/Testnet/Baker/CLI.hs`
-- [ ] T028 [US1] Add a `just bake-local-fast` developer recipe in `justfile`
+- [x] T026 [US1] Implement `metadata.json` writing with artifact digests in `src/Cardano/Testnet/Baker/Metadata.hs`
+- [x] T027 [US1] Wire the `bake --scenario --out` command in `src/Cardano/Testnet/Baker/CLI.hs`
+- [x] T028 [US1] Add a `just bake-local-fast` developer recipe in `justfile`
 
 **Checkpoint**: User Story 1 works independently with the minimal test scenario and proves deterministic output shape without committed public examples.
 

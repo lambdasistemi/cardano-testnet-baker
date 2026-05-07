@@ -14,6 +14,10 @@ import Cardano.Testnet.Baker.Bake
     , BakeRequest (..)
     , bakeScenario
     )
+import Cardano.Testnet.Baker.Metadata
+    ( Digest (..)
+    , digestBytes
+    )
 import Cardano.Testnet.Baker.Scenario
     ( Scenario
     , decodeScenarioBytes
@@ -31,7 +35,8 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
-import Data.List (sort)
+import Data.List (sort, sortOn)
+import Data.Text (Text)
 import System.Directory
     ( createDirectoryIfMissing
     , doesDirectoryExist
@@ -123,6 +128,24 @@ spec = describe "bake output layout" $ do
             doesPathExist (outputDir </> "metadata.json")
                 `shouldReturn` True
 
+    it "writes metadata artifact digests for generated artifacts" $
+        withScratch "metadata-artifact-digests" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            actualDigests <-
+                readMetadataArtifactDigests $
+                    outputDir </> "metadata.json"
+            expectedDigests <-
+                sortOn fst
+                    <$> traverse
+                        (artifactDigest outputDir)
+                        requiredGeneratedPaths
+            actualDigests `shouldBe` expectedDigests
+
     it "writes byte-identical output across two runs" $
         withScratch "two-run-determinism" $ \root -> do
             (scenarioBytes, scenario) <- loadMinimalScenario
@@ -184,6 +207,21 @@ instance FromJSON FaucetAddressInfo where
     parseJSON = withObject "FaucetAddressInfo" $ \object ->
         FaucetAddressInfo <$> object .: "addressHex"
 
+newtype MetadataArtifactDigests = MetadataArtifactDigests [(FilePath, Digest)]
+    deriving (Eq, Show)
+
+instance FromJSON MetadataArtifactDigests where
+    parseJSON = withObject "BakeMetadata" $ \object -> do
+        artifactDigests <- object .: "artifactDigests"
+        MetadataArtifactDigests
+            . sortOn fst
+            . fmap digestKeyTextPair
+            . KeyMap.toList
+            <$> withObject
+                "artifactDigests"
+                (traverse parseJSON)
+                artifactDigests
+
 readShelleyInitialFundAmounts :: FilePath -> IO [Integer]
 readShelleyInitialFundAmounts path =
     fmap snd <$> readShelleyInitialFunds path
@@ -207,8 +245,24 @@ readFaucetAddressInfo path = do
         Left err -> fail err
         Right (FaucetAddressInfo addressHex) -> pure addressHex
 
+readMetadataArtifactDigests :: FilePath -> IO [(FilePath, Digest)]
+readMetadataArtifactDigests path = do
+    bytes <- LBS.readFile path
+    case eitherDecode bytes of
+        Left err -> fail err
+        Right (MetadataArtifactDigests artifactDigests) ->
+            pure artifactDigests
+
 keyTextPair :: (Key.Key, Integer) -> (String, Integer)
 keyTextPair (key, amount) = (Key.toString key, amount)
+
+digestKeyTextPair :: (Key.Key, Text) -> (FilePath, Digest)
+digestKeyTextPair (key, digest) = (Key.toString key, Digest digest)
+
+artifactDigest :: FilePath -> FilePath -> IO (FilePath, Digest)
+artifactDigest root relativePath = do
+    bytes <- LBS.readFile (root </> relativePath)
+    pure (relativePath, digestBytes (LBS.toStrict bytes))
 
 runBake
     :: LBS.ByteString
@@ -285,6 +339,10 @@ requiredPaths =
     , "utxo-keys/faucet.addr.info"
     , "metadata.json"
     ]
+
+requiredGeneratedPaths :: [FilePath]
+requiredGeneratedPaths =
+    filter (/= "metadata.json") requiredPaths
 
 genesisAndConfigPaths :: [FilePath]
 genesisAndConfigPaths =
