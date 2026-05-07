@@ -26,6 +26,7 @@ import Data.Aeson
     , withObject
     , (.:)
     )
+import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
@@ -71,9 +72,25 @@ spec = describe "bake output layout" $ do
 
             result `shouldBe` Right (BakeOutput outputDir)
             initialFunds <-
-                readShelleyInitialFunds $
+                readShelleyInitialFundAmounts $
                     outputDir </> "genesis/shelley-genesis.json"
             initialFunds `shouldBe` [1000000000]
+
+    it "writes faucet address info matching Shelley initialFunds" $
+        withScratch "faucet-address-info" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            addressInfo <-
+                readFaucetAddressInfo $
+                    outputDir </> "utxo-keys/faucet.addr.info"
+            initialFundAddresses <-
+                readShelleyInitialFundAddresses $
+                    outputDir </> "genesis/shelley-genesis.json"
+            initialFundAddresses `shouldBe` [addressInfo]
 
     it "rejects a non-empty output directory without deleting it" $
         withScratch "non-empty-output" $ \root -> do
@@ -139,21 +156,47 @@ loadMinimalScenario = do
         Left err -> fail err
         Right scenario -> pure (scenarioBytes, scenario)
 
-newtype ShelleyInitialFunds = ShelleyInitialFunds [Integer]
+newtype ShelleyInitialFunds = ShelleyInitialFunds [(String, Integer)]
     deriving (Eq, Show)
 
 instance FromJSON ShelleyInitialFunds where
     parseJSON = withObject "ShelleyGenesis" $ \object -> do
         initialFunds <- object .: "initialFunds"
-        ShelleyInitialFunds . sort . KeyMap.elems
+        ShelleyInitialFunds . sort . fmap keyTextPair . KeyMap.toList
             <$> withObject "initialFunds" (traverse parseJSON) initialFunds
 
-readShelleyInitialFunds :: FilePath -> IO [Integer]
+newtype FaucetAddressInfo = FaucetAddressInfo String
+    deriving (Eq, Show)
+
+instance FromJSON FaucetAddressInfo where
+    parseJSON = withObject "FaucetAddressInfo" $ \object ->
+        FaucetAddressInfo <$> object .: "addressHex"
+
+readShelleyInitialFundAmounts :: FilePath -> IO [Integer]
+readShelleyInitialFundAmounts path =
+    fmap snd <$> readShelleyInitialFunds path
+
+readShelleyInitialFundAddresses :: FilePath -> IO [String]
+readShelleyInitialFundAddresses path =
+    fmap fst <$> readShelleyInitialFunds path
+
+readShelleyInitialFunds :: FilePath -> IO [(String, Integer)]
 readShelleyInitialFunds path = do
     bytes <- LBS.readFile path
     case eitherDecode bytes of
         Left err -> fail err
-        Right (ShelleyInitialFunds initialFunds) -> pure initialFunds
+        Right (ShelleyInitialFunds initialFunds) ->
+            pure initialFunds
+
+readFaucetAddressInfo :: FilePath -> IO String
+readFaucetAddressInfo path = do
+    bytes <- LBS.readFile path
+    case eitherDecode bytes of
+        Left err -> fail err
+        Right (FaucetAddressInfo addressHex) -> pure addressHex
+
+keyTextPair :: (Key.Key, Integer) -> (String, Integer)
+keyTextPair (key, amount) = (Key.toString key, amount)
 
 runBake
     :: LBS.ByteString

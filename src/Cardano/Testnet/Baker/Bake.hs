@@ -20,6 +20,7 @@ import Cardano.Testnet.Baker.Keys
     , PoolKeyArtifacts (..)
     , deriveFaucetKeyArtifacts
     , derivePoolKeyArtifacts
+    , faucetPaymentAddressHex
     )
 import Cardano.Testnet.Baker.Metadata
     ( BakeMetadata (..)
@@ -30,6 +31,7 @@ import Cardano.Testnet.Baker.Metadata
     )
 import Cardano.Testnet.Baker.Scenario
     ( FaucetDeclaration (..)
+    , Network (..)
     , PoolDeclaration (..)
     , Scenario (..)
     )
@@ -185,7 +187,9 @@ writeArtifact stageDir scenario keyArtifacts relativePath = do
 keyArtifactBytes :: Scenario -> [(FilePath, LBS.ByteString)]
 keyArtifactBytes scenario =
     concatMap (poolKeyArtifactBytes seed) (scenarioPools scenario)
-        <> concatMap (faucetKeyArtifactBytes seed) (scenarioFaucets scenario)
+        <> concatMap
+            (faucetKeyArtifactBytes seed (scenarioNetwork scenario))
+            (scenarioFaucets scenario)
   where
     seed = TextEncoding.encodeUtf8 (scenarioSeed scenario)
 
@@ -202,10 +206,25 @@ poolKeyArtifactBytes seed pool =
         ]
 
 faucetKeyArtifactBytes
-    :: ByteString -> FaucetDeclaration -> [(FilePath, LBS.ByteString)]
-faucetKeyArtifactBytes seed faucet =
+    :: ByteString
+    -> Network
+    -> FaucetDeclaration
+    -> [(FilePath, LBS.ByteString)]
+faucetKeyArtifactBytes seed network faucet =
     let FaucetKeyArtifacts{..} = deriveFaucetKeyArtifacts seed faucet
-    in  [(faucetSigningKeyPath faucet, faucetPaymentSigningEnvelope)]
+        addressHex = faucetPaymentAddressHex seed network faucet
+    in  [ (faucetSigningKeyPath faucet, faucetPaymentSigningEnvelope)
+        ,
+            ( faucetAddressInfoPath faucet
+            , canonicalJsonBytes $
+                object
+                    [ "addressHex" .= addressHex
+                    , "faucetLabel" .= faucetLabel faucet
+                    , "networkId" .= networkId network
+                    , "networkMagic" .= networkMagic network
+                    ]
+            )
+        ]
 
 -- NOTE: stub for bisect-safety, replaced by the genesis/key generation slices.
 placeholderArtifact :: Scenario -> FilePath -> LBS.ByteString
