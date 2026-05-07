@@ -37,6 +37,7 @@ data PoolKeyArtifacts = PoolKeyArtifacts
     , poolColdVerificationEnvelope :: LBS.ByteString
     , poolKesSigningEnvelope :: LBS.ByteString
     , poolVrfSigningEnvelope :: LBS.ByteString
+    , poolOperationalCertificateEnvelope :: LBS.ByteString
     , poolStakeSigningEnvelope :: LBS.ByteString
     , poolStakeVerificationEnvelope :: LBS.ByteString
     }
@@ -48,7 +49,7 @@ newtype FaucetKeyArtifacts = FaucetKeyArtifacts
     }
     deriving (Eq, Show)
 
--- | Derive all MVP pool key envelopes except the operational certificate.
+-- | Derive all MVP pool key and operational certificate envelopes.
 derivePoolKeyArtifacts
     :: ByteString -> PoolDeclaration -> PoolKeyArtifacts
 derivePoolKeyArtifacts scenarioSeed pool =
@@ -76,6 +77,8 @@ derivePoolKeyArtifacts scenarioSeed pool =
                 PoolStakeKey
                 (poolStakeKeyLabel pool)
                 scenarioSeed
+        operationalCertificate =
+            issuePoolOperationalCertificate coldSigning kesSigning
     in  PoolKeyArtifacts
             { poolColdSigningEnvelope =
                 textEnvelopeBytes "Stake pool cold signing key" coldSigning
@@ -87,6 +90,10 @@ derivePoolKeyArtifacts scenarioSeed pool =
                 textEnvelopeBytes "KES signing key" kesSigning
             , poolVrfSigningEnvelope =
                 textEnvelopeBytes "VRF signing key" vrfSigning
+            , poolOperationalCertificateEnvelope =
+                textEnvelopeBytes
+                    "Stake pool operational certificate"
+                    operationalCertificate
             , poolStakeSigningEnvelope =
                 textEnvelopeBytes "Stake signing key" stakeSigning
             , poolStakeVerificationEnvelope =
@@ -129,6 +136,25 @@ faucetPaymentAddressHex scenarioSeed network faucet =
             scenarioSeed
     paymentKeyHash =
         Api.verificationKeyHash (Api.getVerificationKey paymentSigning)
+
+issuePoolOperationalCertificate
+    :: Api.SigningKey Api.StakePoolKey
+    -> Api.SigningKey Api.KesKey
+    -> Api.OperationalCertificate
+issuePoolOperationalCertificate coldSigning kesSigning =
+    case Api.issueOperationalCertificate
+        (Api.getVerificationKey kesSigning)
+        (Left (Api.AnyStakePoolNormalSigningKey coldSigning))
+        (Api.KESPeriod 0)
+        ( Api.OperationalCertificateIssueCounter
+            0
+            (Api.getVerificationKey coldSigning)
+        ) of
+        Right (certificate, _) -> certificate
+        Left err ->
+            error $
+                "failed to issue deterministic operational certificate: "
+                    <> show err
 
 deriveSigningKey
     :: (Api.Key keyrole)

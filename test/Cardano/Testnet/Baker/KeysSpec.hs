@@ -46,6 +46,10 @@ spec = describe "deterministic key envelopes" $ do
         poolColdSigningEnvelope (derivePoolKeyArtifacts seed pool)
             `shouldSatisfy` isTextEnvelope
 
+    it "renders pool operational certificates as Cardano text envelopes" $
+        poolOperationalCertificateEnvelope (derivePoolKeyArtifacts seed pool)
+            `shouldSatisfy` isTextEnvelope
+
     it "renders faucet payment keys as Cardano text envelopes" $
         faucetPaymentSigningEnvelope
             (deriveFaucetKeyArtifacts seed faucet)

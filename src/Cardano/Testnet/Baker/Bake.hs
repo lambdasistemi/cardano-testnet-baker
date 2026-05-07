@@ -201,6 +201,7 @@ poolKeyArtifactBytes seed pool =
         , (poolKeyPath pool "cold.vkey", poolColdVerificationEnvelope)
         , (poolKeyPath pool "kes.skey", poolKesSigningEnvelope)
         , (poolKeyPath pool "vrf.skey", poolVrfSigningEnvelope)
+        , (poolKeyPath pool "opcert.cert", poolOperationalCertificateEnvelope)
         , (poolKeyPath pool "stake.skey", poolStakeSigningEnvelope)
         , (poolKeyPath pool "stake.vkey", poolStakeVerificationEnvelope)
         ]

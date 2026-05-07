@@ -53,7 +53,7 @@
 ### Implementation for User Story 1
 
 - [x] T022 [US1] Implement Cardano text-envelope rendering helpers in `src/Cardano/Testnet/Baker/TextEnvelope.hs`
-- [ ] T023 [US1] Implement deterministic KES, VRF, cold, stake, op-cert, and faucet key generation in `src/Cardano/Testnet/Baker/Keys.hs`
+- [x] T023 [US1] Implement deterministic KES, VRF, cold, stake, op-cert, and faucet key generation in `src/Cardano/Testnet/Baker/Keys.hs`
 - [ ] T024 [US1] Implement Byron, Shelley, Alonzo, Conway, and node config generation in `src/Cardano/Testnet/Baker/Genesis.hs`
 - [x] T025 [US1] Implement staged artifact writing and atomic publish in `src/Cardano/Testnet/Baker/Bake.hs`
 - [ ] T026 [US1] Implement `metadata.json` writing with artifact digests in `src/Cardano/Testnet/Baker/Metadata.hs`
