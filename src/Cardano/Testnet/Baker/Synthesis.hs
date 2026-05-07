@@ -10,6 +10,8 @@ executable from already-generated bake artifacts.
 module Cardano.Testnet.Baker.Synthesis
     ( BulkCredential
     , SynthesisError (..)
+    , SynthesisRun (..)
+    , SynthesisRunner (..)
     , bulkCredentialKesSigningKey
     , bulkCredentialOperationalCertificate
     , bulkCredentialVrfSigningKey
@@ -38,6 +40,24 @@ data BulkCredential = BulkCredential
 data SynthesisError
     = SynthesisInvalidTextEnvelope Text String
     deriving (Eq, Show)
+
+-- | One invocation of the upstream synthesizer.
+data SynthesisRun = SynthesisRun
+    { synthesisRunNodeConfigPath :: FilePath
+    -- ^ Generated node @config.json@ path.
+    , synthesisRunBulkCredentialsPath :: FilePath
+    -- ^ Generated bulk credentials JSON path.
+    , synthesisRunChainDbPath :: FilePath
+    -- ^ Destination ChainDB seed directory.
+    , synthesisRunSlotCount :: Int
+    -- ^ Number of slots to synthesize.
+    }
+    deriving (Eq, Show)
+
+-- | Effect boundary for producing a ChainDB seed.
+newtype SynthesisRunner = SynthesisRunner
+    { runSynthesis :: SynthesisRun -> IO (Either SynthesisError ())
+    }
 
 -- | Select the producer artifacts consumed by the synthesizer.
 bulkCredentialFromPoolArtifacts

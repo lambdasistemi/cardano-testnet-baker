@@ -20,7 +20,7 @@ import Cardano.Testnet.Baker.Bake
     ( BakeError (..)
     , BakeOutput (..)
     , BakeRequest (..)
-    , bakeScenario
+    , bakeScenarioWithoutSynthesis
     )
 import Cardano.Testnet.Baker.Scenario (decodeScenarioBytes)
 import Cardano.Testnet.Baker.Validation
@@ -174,7 +174,7 @@ runBakeOptions BakeOptions{..} = do
         Left err -> pure (Left ("scenario decode failed: " <> err))
         Right scenario -> do
             result <-
-                bakeScenario
+                bakeScenarioWithoutSynthesis
                     BakeRequest
                         { bakeRequestScenario = scenario
                         , bakeRequestScenarioBytes = scenarioBytes
@@ -225,5 +225,7 @@ showBakeError = \case
         "output directory is not empty: " <> outputDir
     BakeOutputPathExistsAsFile outputDir ->
         "output path exists as a file: " <> outputDir
+    BakeSynthesisFailed err ->
+        "synthesis failed: " <> show err
     BakeIOException outputDir err ->
         "failed to write bake output at " <> outputDir <> ": " <> err

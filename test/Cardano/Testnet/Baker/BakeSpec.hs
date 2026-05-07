@@ -12,7 +12,8 @@ import Cardano.Testnet.Baker.Bake
     ( BakeError (..)
     , BakeOutput (..)
     , BakeRequest (..)
-    , bakeScenario
+    , bakeScenarioWithSynthesisRunner
+    , bakeScenarioWithoutSynthesis
     )
 import Cardano.Testnet.Baker.Metadata
     ( Digest (..)
@@ -21,6 +22,11 @@ import Cardano.Testnet.Baker.Metadata
 import Cardano.Testnet.Baker.Scenario
     ( Scenario
     , decodeScenarioBytes
+    )
+import Cardano.Testnet.Baker.Synthesis
+    ( SynthesisError (..)
+    , SynthesisRun (..)
+    , SynthesisRunner (..)
     )
 import Control.Exception (finally)
 import Control.Monad (when)
@@ -37,6 +43,11 @@ import Data.Bits ((.&.), (.|.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
+import Data.IORef
+    ( newIORef
+    , readIORef
+    , writeIORef
+    )
 import Data.List (sort, sortOn)
 import Data.Text (Text)
 import System.Directory
@@ -93,6 +104,105 @@ spec = describe "bake output layout" $ do
                 readShelleyInitialFundAmounts $
                     outputDir </> "genesis/shelley-genesis.json"
             initialFunds `shouldBe` [1000000000]
+
+    it "stages synthesized ChainDB while preserving Shelley initial funds" $
+        withScratch "synthesis-output" $ \root -> do
+            (scenarioBytes, scenario) <-
+                loadScenario "examples/scenarios/local-fast.json"
+            let outputDir = root </> "out"
+                runner =
+                    SynthesisRunner $ \SynthesisRun{..} -> do
+                        synthesisRunSlotCount `shouldBe` 720
+                        doesPathExist synthesisRunNodeConfigPath
+                            `shouldReturn` True
+                        doesPathExist synthesisRunBulkCredentialsPath
+                            `shouldReturn` True
+                        createDirectoryIfMissing
+                            True
+                            (synthesisRunChainDbPath </> "immutable")
+                        createDirectoryIfMissing
+                            True
+                            (synthesisRunChainDbPath </> "ledger")
+                        createDirectoryIfMissing
+                            True
+                            (synthesisRunChainDbPath </> "volatile")
+                        writeFile
+                            ( synthesisRunChainDbPath
+                                </> "immutable/fake.chunk"
+                            )
+                            "seed"
+                        pure (Right ())
+
+            result <-
+                runBakeWithSynthesisRunner
+                    runner
+                    scenarioBytes
+                    scenario
+                    outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            doesPathExist
+                (outputDir </> "chain-db/immutable/fake.chunk")
+                `shouldReturn` True
+            initialFunds <-
+                readShelleyInitialFundAmounts $
+                    outputDir </> "genesis/shelley-genesis.json"
+            initialFunds `shouldBe` [1000000000000]
+            doesPathExist (outputDir </> ".synthesis")
+                `shouldReturn` False
+
+    it "does not publish output when synthesis fails" $
+        withScratch "synthesis-failure" $ \root -> do
+            (scenarioBytes, scenario) <-
+                loadScenario "examples/scenarios/local-fast.json"
+            let outputDir = root </> "out"
+                stagingDir = root </> ".out.staging"
+                failure =
+                    SynthesisInvalidTextEnvelope "runner" "boom"
+                runner =
+                    SynthesisRunner $ \SynthesisRun{..} -> do
+                        createDirectoryIfMissing
+                            True
+                            (synthesisRunChainDbPath </> "immutable")
+                        writeFile
+                            ( synthesisRunChainDbPath
+                                </> "immutable/partial.chunk"
+                            )
+                            "partial"
+                        pure (Left failure)
+
+            result <-
+                runBakeWithSynthesisRunner
+                    runner
+                    scenarioBytes
+                    scenario
+                    outputDir
+
+            result `shouldBe` Left (BakeSynthesisFailed failure)
+            doesPathExist outputDir `shouldReturn` False
+            doesPathExist stagingDir `shouldReturn` False
+
+    it "does not run synthesis for genesis-only scenarios" $
+        withScratch "genesis-only-synthesis-skip" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            called <- newIORef False
+            let outputDir = root </> "out"
+                runner =
+                    SynthesisRunner $ \_ -> do
+                        writeIORef called True
+                        pure (Right ())
+
+            result <-
+                runBakeWithSynthesisRunner
+                    runner
+                    scenarioBytes
+                    scenario
+                    outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            readIORef called `shouldReturn` False
+            doesPathExist (outputDir </> "chain-db")
+                `shouldReturn` False
 
     it "writes faucet address info matching Shelley initialFunds" $
         withScratch "faucet-address-info" $ \root -> do
@@ -254,8 +364,12 @@ spec = describe "bake output layout" $ do
             costModelLength `shouldBe` 251
 
 loadMinimalScenario :: IO (LBS.ByteString, Scenario)
-loadMinimalScenario = do
-    scenarioBytes <- LBS.readFile "test/data/minimal-scenario.json"
+loadMinimalScenario =
+    loadScenario "test/data/minimal-scenario.json"
+
+loadScenario :: FilePath -> IO (LBS.ByteString, Scenario)
+loadScenario path = do
+    scenarioBytes <- LBS.readFile path
     case decodeScenarioBytes scenarioBytes of
         Left err -> fail err
         Right scenario -> pure (scenarioBytes, scenario)
@@ -402,7 +516,23 @@ runBake
     -> FilePath
     -> IO (Either BakeError BakeOutput)
 runBake scenarioBytes scenario outputDir =
-    bakeScenario
+    bakeScenarioWithoutSynthesis
+        BakeRequest
+            { bakeRequestScenario = scenario
+            , bakeRequestScenarioBytes = scenarioBytes
+            , bakeRequestOutputDir = outputDir
+            , bakeRequestBakerCommit = "test"
+            }
+
+runBakeWithSynthesisRunner
+    :: SynthesisRunner
+    -> LBS.ByteString
+    -> Scenario
+    -> FilePath
+    -> IO (Either BakeError BakeOutput)
+runBakeWithSynthesisRunner runner scenarioBytes scenario outputDir =
+    bakeScenarioWithSynthesisRunner
+        runner
         BakeRequest
             { bakeRequestScenario = scenario
             , bakeRequestScenarioBytes = scenarioBytes
