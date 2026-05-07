@@ -8,5 +8,18 @@ Provides helpers for writing deterministic Cardano text-envelope JSON
 artifacts.
 -}
 module Cardano.Testnet.Baker.TextEnvelope
-    (
+    ( textEnvelopeBytes
     ) where
+
+import Cardano.Api.Serialise.TextEnvelope
+    ( HasTextEnvelope
+    , TextEnvelopeDescr
+    , textEnvelopeToJSON
+    )
+import Data.ByteString.Lazy (ByteString)
+
+-- | Render a Cardano value as text-envelope JSON bytes.
+textEnvelopeBytes
+    :: (HasTextEnvelope a) => TextEnvelopeDescr -> a -> ByteString
+textEnvelopeBytes description =
+    textEnvelopeToJSON (Just description)

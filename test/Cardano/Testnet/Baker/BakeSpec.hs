@@ -20,6 +20,7 @@ import Cardano.Testnet.Baker.Scenario
     )
 import Control.Exception (finally)
 import Control.Monad (when)
+import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
 import System.Directory
@@ -34,6 +35,7 @@ import Test.Hspec
     , it
     , shouldBe
     , shouldReturn
+    , shouldSatisfy
     )
 
 spec :: Spec
@@ -78,6 +80,26 @@ spec = describe "bake output layout" $ do
                 `shouldBe` Left (BakeOutputDirectoryNotEmpty outputDir)
             doesPathExist existingFile `shouldReturn` True
 
+    it "writes generated key files as text envelopes" $
+        withScratch "key-envelopes" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <-
+                bakeScenario
+                    BakeRequest
+                        { bakeRequestScenario = scenario
+                        , bakeRequestScenarioBytes = scenarioBytes
+                        , bakeRequestOutputDir = outputDir
+                        , bakeRequestBakerCommit = "test"
+                        }
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            coldKey <-
+                LBS.readFile $
+                    outputDir </> "pools/pool-a/keys/cold.skey"
+            coldKey `shouldSatisfy` isTextEnvelope
+
 loadMinimalScenario :: IO (LBS.ByteString, Scenario)
 loadMinimalScenario = do
     scenarioBytes <- LBS.readFile "test/data/minimal-scenario.json"
@@ -116,3 +138,11 @@ requiredPaths =
     , "utxo-keys/faucet.addr.info"
     , "metadata.json"
     ]
+
+isTextEnvelope :: LBS.ByteString -> Bool
+isTextEnvelope bytes =
+    BS.isInfixOf "\"type\"" strictBytes
+        && BS.isInfixOf "\"description\"" strictBytes
+        && BS.isInfixOf "\"cborHex\"" strictBytes
+  where
+    strictBytes = LBS.toStrict bytes

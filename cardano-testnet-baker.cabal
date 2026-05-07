@@ -88,6 +88,7 @@ test-suite unit-tests
     Cardano.Testnet.Baker.BakeSpec
     Cardano.Testnet.Baker.CLISpec
     Cardano.Testnet.Baker.DeterminismSpec
+    Cardano.Testnet.Baker.KeysSpec
     Cardano.Testnet.Baker.MetadataSpec
     Cardano.Testnet.Baker.ScenarioSpec
     Cardano.Testnet.Baker.VersionSpec

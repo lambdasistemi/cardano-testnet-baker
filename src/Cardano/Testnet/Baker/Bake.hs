@@ -14,6 +14,12 @@ module Cardano.Testnet.Baker.Bake
     , bakeScenario
     ) where
 
+import Cardano.Testnet.Baker.Keys
+    ( FaucetKeyArtifacts (..)
+    , PoolKeyArtifacts (..)
+    , deriveFaucetKeyArtifacts
+    , derivePoolKeyArtifacts
+    )
 import Cardano.Testnet.Baker.Metadata
     ( BakeMetadata (..)
     , Digest
@@ -39,11 +45,14 @@ import Control.Exception
     )
 import Control.Monad (when)
 import Data.Aeson (Value, object, (.=))
+import Data.ByteString (ByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
 import Data.List (sort)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Text.Encoding qualified as TextEncoding
 import System.Directory
     ( createDirectoryIfMissing
     , doesDirectoryExist
@@ -145,9 +154,10 @@ writeStagedOutput :: BakeRequest -> FilePath -> IO ()
 writeStagedOutput request stageDir = do
     let scenario = bakeRequestScenario request
         artifactPaths = requiredArtifactPaths scenario
+        keyArtifacts = keyArtifactBytes scenario
     createDirectoryIfMissing True stageDir
     for_ artifactPaths $ \relativePath ->
-        writeArtifact stageDir scenario relativePath
+        writeArtifact stageDir scenario keyArtifacts relativePath
     artifactDigests <- traverse (digestArtifact stageDir) artifactPaths
     LBS.writeFile
         (stageDir </> "metadata.json")
@@ -156,11 +166,44 @@ writeStagedOutput request stageDir = do
                 metadataFor request artifactDigests
         )
 
-writeArtifact :: FilePath -> Scenario -> FilePath -> IO ()
-writeArtifact stageDir scenario relativePath = do
+writeArtifact
+    :: FilePath
+    -> Scenario
+    -> [(FilePath, LBS.ByteString)]
+    -> FilePath
+    -> IO ()
+writeArtifact stageDir scenario keyArtifacts relativePath = do
     let path = stageDir </> relativePath
     createDirectoryIfMissing True (takeDirectory path)
-    LBS.writeFile path (placeholderArtifact scenario relativePath)
+    LBS.writeFile path $
+        fromMaybe
+            (placeholderArtifact scenario relativePath)
+            (lookup relativePath keyArtifacts)
+
+keyArtifactBytes :: Scenario -> [(FilePath, LBS.ByteString)]
+keyArtifactBytes scenario =
+    concatMap (poolKeyArtifactBytes seed) (scenarioPools scenario)
+        <> concatMap (faucetKeyArtifactBytes seed) (scenarioFaucets scenario)
+  where
+    seed = TextEncoding.encodeUtf8 (scenarioSeed scenario)
+
+poolKeyArtifactBytes
+    :: ByteString -> PoolDeclaration -> [(FilePath, LBS.ByteString)]
+poolKeyArtifactBytes seed pool =
+    let PoolKeyArtifacts{..} = derivePoolKeyArtifacts seed pool
+    in  [ (poolKeyPath pool "cold.skey", poolColdSigningEnvelope)
+        , (poolKeyPath pool "cold.vkey", poolColdVerificationEnvelope)
+        , (poolKeyPath pool "kes.skey", poolKesSigningEnvelope)
+        , (poolKeyPath pool "vrf.skey", poolVrfSigningEnvelope)
+        , (poolKeyPath pool "stake.skey", poolStakeSigningEnvelope)
+        , (poolKeyPath pool "stake.vkey", poolStakeVerificationEnvelope)
+        ]
+
+faucetKeyArtifactBytes
+    :: ByteString -> FaucetDeclaration -> [(FilePath, LBS.ByteString)]
+faucetKeyArtifactBytes seed faucet =
+    let FaucetKeyArtifacts{..} = deriveFaucetKeyArtifacts seed faucet
+    in  [(faucetSigningKeyPath faucet, faucetPaymentSigningEnvelope)]
 
 -- NOTE: stub for bisect-safety, replaced by the genesis/key generation slices.
 placeholderArtifact :: Scenario -> FilePath -> LBS.ByteString
