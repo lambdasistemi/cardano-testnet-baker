@@ -20,6 +20,7 @@ import Cardano.Testnet.Baker.CLI
 import Control.Exception (finally)
 import Control.Monad (when)
 import Data.Either (isLeft)
+import Data.List (isInfixOf)
 import System.Directory
     ( createDirectoryIfMissing
     , doesPathExist
@@ -29,6 +30,7 @@ import System.FilePath ((</>))
 import Test.Hspec
     ( Spec
     , describe
+    , expectationFailure
     , it
     , shouldBe
     , shouldReturn
@@ -110,6 +112,41 @@ spec = describe "CLI parser" $ do
                 `shouldSatisfyM` isLeft
             doesPathExist outputDir `shouldReturn` False
 
+    it "reports synthesis validation failures without publishing output" $
+        withScratch "invalid-synthesis-bake" $ \root -> do
+            let scenarioPath = root </> "bad-synthesis.json"
+                outputDir = root </> "out"
+            writeFile scenarioPath synthesisMissingSlotCountScenario
+
+            result <-
+                runBakeOptions
+                    BakeOptions
+                        { bakeScenarioPath = scenarioPath
+                        , bakeOutputDir = outputDir
+                        }
+
+            pure result
+                `shouldReturnLeftContaining` "synthesis slotCount is required when enabled"
+            doesPathExist outputDir `shouldReturn` False
+
+    it
+        "reports non-positive synthesis slot counts with the offending value"
+        $ withScratch "invalid-synthesis-slot-count"
+        $ \root -> do
+            let scenarioPath = root </> "bad-synthesis-slot-count.json"
+            writeFile scenarioPath synthesisZeroSlotCountScenario
+
+            runScenarioValidate scenarioPath
+                `shouldReturnLeftContaining` "synthesis slotCount must be positive, got 0"
+
+    it "reports empty synthesis profiles" $
+        withScratch "invalid-synthesis-profile" $ \root -> do
+            let scenarioPath = root </> "bad-synthesis-profile.json"
+            writeFile scenarioPath synthesisEmptyProfileScenario
+
+            runScenarioValidate scenarioPath
+                `shouldReturnLeftContaining` "synthesis profile must be non-empty when present"
+
 withScratch :: FilePath -> (FilePath -> IO ()) -> IO ()
 withScratch name action = do
     let root = "tmp/unit/cli" </> name
@@ -128,6 +165,15 @@ shouldSatisfyM action predicate = do
     value <- action
     value `shouldSatisfy` predicate
 
+shouldReturnLeftContaining :: IO (Either String a) -> String -> IO ()
+shouldReturnLeftContaining action expected = do
+    result <- action
+    case result of
+        Left err ->
+            err `shouldSatisfy` isInfixOf expected
+        Right _ ->
+            expectationFailure "expected validation failure"
+
 invalidScenario :: String
 invalidScenario =
     "{\
@@ -140,3 +186,32 @@ invalidScenario =
     \\"pools\":[],\
     \\"faucets\":[]\
     \}"
+
+synthesisMissingSlotCountScenario :: String
+synthesisMissingSlotCountScenario =
+    synthesisScenario "{\"enabled\":true}"
+
+synthesisZeroSlotCountScenario :: String
+synthesisZeroSlotCountScenario =
+    synthesisScenario "{\"enabled\":true,\"slotCount\":0}"
+
+synthesisEmptyProfileScenario :: String
+synthesisEmptyProfileScenario =
+    synthesisScenario
+        "{\"enabled\":true,\"slotCount\":1,\"profile\":\"\"}"
+
+synthesisScenario :: String -> String
+synthesisScenario synthesis =
+    "{\
+    \\"schemaVersion\":1,\
+    \\"scenarioId\":\"bad-synthesis\",\
+    \\"seed\":\"00\",\
+    \\"network\":{\"networkMagic\":42,\"networkId\":\"Testnet\"},\
+    \\"eraSchedule\":{\"shelley\":0,\"alonzo\":0,\"conway\":0},\
+    \\"genesis\":{\"epochLength\":120,\"activeSlotsCoeff\":0.05,\"securityParam\":10,\"k\":1,\"maxLovelaceSupply\":1000000},\
+    \\"pools\":[{\"label\":\"pool-a\",\"pledge\":1,\"cost\":1,\"margin\":0.0,\"stake\":1,\"coldKeyLabel\":\"cold\",\"vrfKeyLabel\":\"vrf\",\"kesKeyLabel\":\"kes\",\"stakeKeyLabel\":\"stake\"}],\
+    \\"faucets\":[{\"label\":\"faucet\",\"paymentKeyLabel\":\"payment\",\"lovelace\":1}],\
+    \\"synthesis\":"
+        <> synthesis
+        <> "\
+           \}"
