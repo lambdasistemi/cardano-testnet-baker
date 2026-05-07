@@ -149,6 +149,18 @@ spec = describe "bake output layout" $ do
                     outputDir </> "pools/pool-a/keys/cold.skey"
             coldKey `shouldSatisfy` isTextEnvelope
 
+    it "renders deterministic genesis and node config artifacts" $
+        withScratch "genesis-config" $ \root -> do
+            (scenarioBytes, scenario) <- loadMinimalScenario
+            let outputDir = root </> "out"
+
+            result <- runBake scenarioBytes scenario outputDir
+
+            result `shouldBe` Right (BakeOutput outputDir)
+            for_ genesisAndConfigPaths $ \relativePath -> do
+                artifact <- LBS.readFile (outputDir </> relativePath)
+                isPlaceholder artifact `shouldBe` False
+
 loadMinimalScenario :: IO (LBS.ByteString, Scenario)
 loadMinimalScenario = do
     scenarioBytes <- LBS.readFile "test/data/minimal-scenario.json"
@@ -274,6 +286,15 @@ requiredPaths =
     , "metadata.json"
     ]
 
+genesisAndConfigPaths :: [FilePath]
+genesisAndConfigPaths =
+    [ "genesis/byron-genesis.json"
+    , "genesis/shelley-genesis.json"
+    , "genesis/alonzo-genesis.json"
+    , "genesis/conway-genesis.json"
+    , "genesis/config.json"
+    ]
+
 isTextEnvelope :: LBS.ByteString -> Bool
 isTextEnvelope bytes =
     BS.isInfixOf "\"type\"" strictBytes
@@ -281,3 +302,7 @@ isTextEnvelope bytes =
         && BS.isInfixOf "\"cborHex\"" strictBytes
   where
     strictBytes = LBS.toStrict bytes
+
+isPlaceholder :: LBS.ByteString -> Bool
+isPlaceholder bytes =
+    BS.isInfixOf "\"placeholder\"" (LBS.toStrict bytes)
