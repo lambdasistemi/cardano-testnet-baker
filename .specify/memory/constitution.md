@@ -1,3 +1,25 @@
+<!--
+Sync Impact Report
+
+Version change: 1.0.0 -> 1.1.0
+Modified principles:
+- I. Declarative Scenarios As The Single Input: expanded to require a
+  published, versioned JSON Schema for the scenario/bootstrapping JSON contract.
+- VI. Smallest Provable Step: expanded to require Docker Compose cluster
+  acceptance against generated assets before treating them as consumable.
+Added sections: none
+Removed sections: none
+Templates requiring updates:
+- .specify/templates/plan-template.md reviewed; no template change required
+- .specify/templates/spec-template.md reviewed; no template change required
+- .specify/templates/tasks-template.md reviewed; no template change required
+- .specify/templates/commands/*.md reviewed; directory not present
+Runtime guidance reviewed:
+- README.md reviewed; no immediate wording change required before the schema
+  feature lands
+Deferred follow-ups: none
+-->
+
 # cardano-testnet-baker Constitution
 
 ## Core Principles
@@ -15,6 +37,13 @@ Rule: if a parameter affects the output, it lives in the scenario
 JSON or in a SHA-pinned dependency. If a parameter must vary at
 consumer-mount time (e.g. `systemStart`), it is patched *outside*
 the artifact, not by re-baking.
+
+Rule: the scenario, also called the bootstrapping JSON when consumed
+downstream, is a public compatibility contract. The repo MUST publish
+a versioned JSON Schema for that contract, committed alongside the
+example scenarios. CI MUST validate every committed example scenario
+against the published schema. Schema-breaking changes MUST bump the
+schema version and document the migration path in the feature plan.
 
 ### II. Determinism By Construction
 
@@ -77,6 +106,14 @@ The first feature spec exists to validate that a chosen approach
 actually produces consumable artifacts; only then do we scale to
 multiple scenarios, OCI publishing, or downstream wiring.
 
+Rule: any feature that creates or changes baked testnet assets MUST
+run a Docker Compose cluster acceptance test against those exact
+assets before the feature is considered ready for `main`. The cluster
+MUST mount the generated genesis files and required key material,
+start the intended node topology far enough to validate the initial
+chain state, and fail on genesis, configuration, key, or startup
+validation errors.
+
 ## Code Quality Gates
 
 - Hackage-ready Haskell at all times: `cabal check` clean, `-Werror`
@@ -84,6 +121,8 @@ multiple scenarios, OCI publishing, or downstream wiring.
 - Fourmolu (70-char limit, leading commas/arrows, 4-space indent)
 - HLint clean
 - Shell scripts: `set -euo pipefail`, shellcheck clean
+- Asset-producing features: Docker Compose cluster acceptance clean
+  against the generated assets before merge
 - `just CI` mirrors the GitHub CI workflow; runs locally before
   every push
 
@@ -118,4 +157,4 @@ explicitly justifies an exception to) every Core Principle. Amendments
 require a PR titled `chore(constitution): ...` and bump the version
 below.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-07 | **Last Amended**: 2026-05-07
+**Version**: 1.1.0 | **Ratified**: 2026-05-07 | **Last Amended**: 2026-05-07
