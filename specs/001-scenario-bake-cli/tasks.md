@@ -82,7 +82,7 @@
 - [x] T035 [US2] Implement `scenario validate` semantic validation output in `src/Cardano/Testnet/Baker/CLI.hs`
 - [x] T036 [US2] Add `check-jsonschema` example validation to `nix/checks.nix`
 - [x] T037 [US2] Add `just validate-scenarios` and include it in `just CI` in `justfile`
-- [ ] T038 [US2] Update example scenario documentation in `README.md`
+- [x] T038 [US2] Update example scenario documentation in `README.md`
 
 **Checkpoint**: User Story 2 works independently: the public schema and both examples validate without needing compose acceptance.
 

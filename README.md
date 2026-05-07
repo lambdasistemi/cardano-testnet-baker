@@ -16,15 +16,36 @@ Targets:
 
 | Target | How |
 |---|---|
-| Local CLI | `nix run github:lambdasistemi/cardano-testnet-baker -- bake scenario.json` |
+| Local CLI | `nix run github:lambdasistemi/cardano-testnet-baker -- scenario validate <scenario.json>` |
 | OCI image | published to `ghcr.io/lambdasistemi/cardano-testnet-baker:<sha>` |
 | Native binary | DEB / RPM / AppImage / Homebrew tap (forthcoming) |
 
 ## Status
 
-Scaffolding in flight. The actual baker, scenario schema, and synthesizer
-wiring are introduced via Spec-Driven Development; see open PRs and the
-`specs/` tree.
+Feature 001 is in flight. The repository currently publishes the v1 scenario
+schema and two committed examples:
+
+- `schemas/scenario/v1.schema.json`
+- `examples/scenarios/local-fast.json`
+- `examples/scenarios/normal.json`
+
+The `scenario validate` command validates scenario JSON semantically. The
+`bake` command and node acceptance harness are introduced in later Feature 001
+slices; see the `specs/` tree for the task breakdown.
+
+## Scenario Validation
+
+Validate every committed example against the published JSON Schema:
+
+```sh
+just validate-scenarios
+```
+
+Validate a scenario with the CLI semantic checks:
+
+```sh
+nix run . -- scenario validate examples/scenarios/local-fast.json
+```
 
 ## Development
 
