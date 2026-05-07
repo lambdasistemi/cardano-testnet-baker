@@ -20,9 +20,18 @@ import Cardano.Testnet.Baker.Validation
     , ValidationFailure (..)
     , validateScenario
     )
+import Data.Aeson
+    ( Value (..)
+    , eitherDecode'
+    )
+import Data.Aeson.Key (Key)
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString.Lazy (ByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Either (isLeft)
+import Data.Foldable (toList)
+import Data.Maybe (isJust)
+import Data.Text (Text)
 import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
 spec :: Spec
@@ -67,6 +76,39 @@ spec = describe "Scenario decoding and validation" $ do
 
     it "rejects run-specific systemStart in the baked scenario" $
         decodeScenarioBytes scenarioWithSystemStart `shouldSatisfy` isLeft
+
+    it "publishes synthesis as an optional root schema field" $ do
+        schema <- loadScenarioSchema
+        schemaPath ["properties", "synthesis"] schema
+            `shouldSatisfy` isJust
+        schemaPath ["required"] schema
+            `shouldSatisfy` maybe False (notElem "synthesis" . stringArray)
+
+    it
+        "defines synthesis schema fields and rejects unknown synthesis keys"
+        $ do
+            schema <- loadScenarioSchema
+            synthesis <- requireRootPropertySchema "synthesis" schema
+            schemaPath ["additionalProperties"] synthesis
+                `shouldBe` Just (Bool False)
+            stringArray <$> schemaPath ["required"] synthesis
+                `shouldBe` Just ["enabled"]
+            schemaPath ["properties", "enabled", "type"] synthesis
+                `shouldBe` Just (String "boolean")
+            schemaPath ["properties", "slotCount", "type"] synthesis
+                `shouldBe` Just (String "integer")
+            schemaPath ["properties", "slotCount", "minimum"] synthesis
+                `shouldBe` Just (Number 1)
+            schemaPath ["properties", "profile", "type"] synthesis
+                `shouldBe` Just (String "string")
+            schemaPath ["properties", "profile", "minLength"] synthesis
+                `shouldBe` Just (Number 1)
+
+    it "requires slotCount only when synthesis is enabled" $ do
+        schema <- loadScenarioSchema
+        synthesis <- requireRootPropertySchema "synthesis" schema
+        schemaPath ["allOf"] synthesis
+            `shouldSatisfy` maybe False hasEnabledSlotCountConditional
 
 minimalScenario :: ByteString
 minimalScenario =
@@ -126,3 +168,51 @@ loadScenario path = do
     case decodeScenarioBytes bytes of
         Left err -> fail err
         Right scenario -> pure scenario
+
+loadScenarioSchema :: IO Value
+loadScenarioSchema = do
+    bytes <- LBS.readFile "schemas/scenario/v1.schema.json"
+    case eitherDecode' bytes of
+        Left err -> fail err
+        Right schema -> pure schema
+
+schemaPath :: [Key] -> Value -> Maybe Value
+schemaPath [] value = Just value
+schemaPath (key : keys) value = lookupKey key value >>= schemaPath keys
+
+rootPropertySchema :: Key -> Value -> Maybe Value
+rootPropertySchema key schema =
+    case schemaPath ["properties", key] schema of
+        Just property ->
+            case schemaPath ["$ref"] property of
+                Just (String _) -> schemaPath ["$defs", key] schema
+                _ -> Just property
+        Nothing -> Nothing
+
+requireRootPropertySchema :: Key -> Value -> IO Value
+requireRootPropertySchema key schema =
+    case rootPropertySchema key schema of
+        Just value -> pure value
+        Nothing -> fail ("missing root schema property " <> show key)
+
+lookupKey :: Key -> Value -> Maybe Value
+lookupKey key (Object object) = KeyMap.lookup key object
+lookupKey _ _ = Nothing
+
+stringArray :: Value -> [Text]
+stringArray (Array values) =
+    [text | String text <- toList values]
+stringArray _ = []
+
+hasEnabledSlotCountConditional :: Value -> Bool
+hasEnabledSlotCountConditional (Array clauses) =
+    any matchesClause clauses
+  where
+    matchesClause clause =
+        schemaPath ["if", "properties", "enabled", "const"] clause
+            == Just (Bool True)
+            && maybe
+                False
+                (elem "slotCount" . stringArray)
+                (schemaPath ["then", "required"] clause)
+hasEnabledSlotCountConditional _ = False

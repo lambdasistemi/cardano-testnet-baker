@@ -50,6 +50,9 @@
       "items": {
         "$ref": "#/$defs/faucet"
       }
+    },
+    "synthesis": {
+      "$ref": "#/$defs/synthesis"
     }
   },
   "$defs": {
@@ -186,6 +189,39 @@
         },
         "metadata": true
       }
+    },
+    "synthesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "slotCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["enabled"],
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["slotCount"]
+          }
+        }
+      ]
     },
     "label": {
       "type": "string",
