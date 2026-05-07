@@ -31,8 +31,8 @@ import Options.Applicative
 main :: IO ()
 main = do
     () <- execParser opts
-    putStrLn
-        $ "cardano-testnet-baker "
+    putStrLn $
+        "cardano-testnet-baker "
             <> libraryVersion
             <> " — scaffold; subcommands not yet wired."
 
