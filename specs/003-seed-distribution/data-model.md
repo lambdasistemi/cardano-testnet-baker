@@ -39,14 +39,15 @@ projected to remove the `observation` block before it enters the image
 │   ├── ledger/
 │   └── volatile/
 ├── genesis/
-│   ├── alonzo.json
-│   ├── byron.json
-│   ├── conway.json
-│   └── shelley.json
+│   ├── alonzo-genesis.json
+│   ├── byron-genesis.json
+│   ├── conway-genesis.json
+│   ├── shelley-genesis.json
+│   └── config.json
 ├── pools/
-│   └── pool-<n>/{kes.skey, vrf.skey, cold.skey, op.cert, stake.skey, stake.vkey, …}
+│   └── pool-<name>/keys/{kes.skey, vrf.skey, cold.skey, cold.vkey, opcert.cert, stake.skey, stake.vkey}
 ├── utxo-keys/
-│   └── faucet-<n>/{utxo.skey, utxo.vkey, address}
+│   └── {genesis.<n>.skey, genesis.<n>.addr.info}
 ├── metadata.json
 └── synthesis-report.json   # observation block stripped; deterministic
 ```

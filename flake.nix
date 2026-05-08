@@ -68,9 +68,32 @@
           };
         shell = import ./nix/shell.nix { inherit pkgs project iogTools; };
         checks = import ./nix/checks.nix { inherit pkgs project baker; };
+        seedImage = import ./nix/seed-image.nix { inherit pkgs baker; };
+
+        scenariosDir = ./examples/scenarios;
+        scenarioFiles = builtins.attrNames (
+          pkgs.lib.filterAttrs (
+            name: type: type == "regular" && pkgs.lib.hasSuffix ".json" name
+          ) (builtins.readDir scenariosDir)
+        );
+        seedImagePackages = pkgs.lib.listToAttrs (
+          map (
+            file:
+            let
+              scenarioName = pkgs.lib.removeSuffix ".json" file;
+            in
+            {
+              name = "seedImage-${scenarioName}";
+              value = seedImage.mkSeedImage {
+                inherit scenarioName;
+                scenarioPath = scenariosDir + "/${file}";
+              };
+            }
+          ) scenarioFiles
+        );
       in
       {
-        packages = flakePkgs.packages // {
+        packages = flakePkgs.packages // seedImagePackages // {
           default = baker;
           db-synthesizer = iogTools.db-synthesizer;
           unit-tests = flakePkgs.packages."cardano-testnet-baker:test:unit-tests";
