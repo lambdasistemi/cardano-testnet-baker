@@ -31,6 +31,17 @@ digit            = "0" | … | "9" ;
 hex              = digit | "a" | "b" | "c" | "d" | "e" | "f" ;
 ```
 
+### Source of `<scenario-digest>`
+
+The 64-hex `scenario-digest` is sourced from
+`metadata.json.inputDigest`, which is the SHA-256 of the canonical
+scenario JSON. The same 64-hex value also appears in
+`synthesis-report.json` as `scenarioDigest` (when the scenario enables
+synthesis), so the names diverge between files but the bytes are
+identical. The publish app reads `metadata.json.inputDigest` because
+metadata is always present and deterministic; the user-visible tag
+fragment retains the consumer-friendly `<scenarioDigest>` spelling.
+
 ## Tag semantics
 
 | Tag | Resolves to | Stability |

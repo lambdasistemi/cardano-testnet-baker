@@ -111,10 +111,13 @@ tag in the registry.
    **Then** the bytes match what the baker writes to its scenario output
    directory for the same scenario at the same commit.
 3. **Given** a published image, **When** the reviewer reads
-   `/seed/metadata.json` and `/seed/synthesis-report.json` from the image,
-   **Then** they see the same values that
-   `specs/002-chaindb-synthesis/quickstart.md` records as measurement
-   evidence for that scenario at that baker version.
+   `/seed/metadata.json` and the deterministic projection of
+   `/seed/synthesis-report.json` (without the host-dependent
+   `observation` block, see FR-002), **Then** they see the same
+   `slotCount`, `profile`, `scenarioDigest`, and `chainDb.*` size
+   facts that `specs/002-chaindb-synthesis/quickstart.md` records as
+   measurement evidence for that scenario at that baker version.
+   Producer-side wall-clock fields are intentionally not in the image.
 
 ---
 
@@ -150,15 +153,25 @@ tag in the registry.
   payload is the deterministic baker output for that scenario at the current
   baker commit.
 - **FR-002**: The published artifact's payload MUST be a directory tree
-  rooted at `/seed/` containing exactly the files the baker writes to its
-  scenario output directory: `genesis/`, `pools/`, `utxo-keys/`, `chain-db/`,
-  `metadata.json`, and `synthesis-report.json` (the `chain-db/` and
-  `synthesis-report.json` entries appear when the scenario enables
-  synthesis).
+  rooted at `/seed/` containing the files the baker writes to its scenario
+  output directory: `genesis/`, `pools/`, `utxo-keys/`, `chain-db/`,
+  `metadata.json`, and a *deterministic projection* of
+  `synthesis-report.json` (the `chain-db/` and `synthesis-report.json`
+  entries appear when the scenario enables synthesis). The
+  deterministic projection MUST drop the `observation` block (host,
+  `startedAt`, `completedAt`, `wallTimeMilliseconds`) which Feature 002
+  classifies as host-dependent and explicitly excludes from byte-for-byte
+  equality (`specs/002-chaindb-synthesis/contracts/artifact-layout.md`,
+  Determinism Rules). All other fields of the report — `scenarioId`,
+  `scenarioDigest`, `bakerVersion`, `slotCount`, `profile`, `chainDb.*` —
+  remain in the published copy.
 - **FR-003**: Each published artifact MUST be addressable by a primary tag
-  of the form `<scenario-name>-<scenarioDigest>`, where `<scenarioDigest>` is
-  the canonical scenario hash already emitted by the baker in
-  `metadata.json`.
+  of the form `<scenario-name>-<scenarioDigest>`, where `<scenarioDigest>`
+  is the canonical scenario hash sourced from `metadata.json.inputDigest`
+  (the field name baker code uses today). The tag fragment is named
+  `<scenarioDigest>` for consumer-facing clarity even though the source
+  field is `inputDigest`; both refer to the SHA-256 of the canonical
+  scenario JSON, identical hex to `synthesis-report.json.scenarioDigest`.
 - **FR-004**: Each published artifact MUST also be addressable by a
   secondary tag of the form `<scenario-name>-sha-<bakerCommitSha7>` for
   human-traceable per-commit linkage.
@@ -184,10 +197,13 @@ tag in the registry.
   identifier scheme, the layout under `/seed/`, and a worked compose-snippet
   example — for the paired wiring PR in `lambdasistemi/amaru-bootstrap` (its
   issue #15) to land without re-deciding any part of the contract.
-- **FR-012**: The published artifact MUST carry, as part of its payload,
-  the `synthesis-report.json` already produced by Feature 002, so a consumer
-  can inspect on-disk sizes, slot counts, and wall-clock measurements
-  without re-running synthesis.
+- **FR-012**: The published artifact MUST carry, as part of its payload, a
+  deterministic projection of the `synthesis-report.json` produced by
+  Feature 002 (see FR-002), so a consumer can inspect the scenario's
+  `slotCount`, `profile`, and `chainDb.*` size facts without re-running
+  synthesis. The host-dependent wall-clock observation block is **not**
+  part of the image; consumers requiring producer-side timing must read
+  the unpackaged bake output from a CI run.
 - **FR-013**: V1 MUST NOT add image signing. A follow-up issue MUST be
   filed to introduce cosign keyless signing (Sigstore Fulcio/Rekor via the
   GitHub Actions OIDC token) once basic publishing is proven, per the

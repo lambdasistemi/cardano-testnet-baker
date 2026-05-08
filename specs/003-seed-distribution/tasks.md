@@ -60,41 +60,64 @@ task. Determinism must be enforced before we dare push, so it lands
 inside the Build Gate.
 
 - [ ] **T001** [US2] Add `nix/seed-image.nix` exposing
-  `mkSeedImage { scenarioName, scenarioPath }` that bakes the scenario
-  via `pkgs.runCommand` (invoking the `baker` shell wrapper) and wraps
-  the result in `pkgs.dockerTools.streamLayeredImage` with
-  `created = "1970-01-01T00:00:00Z"`, `name =
-  "ghcr.io/lambdasistemi/cardano-testnet-seed"`, single layer rooted
-  at `/seed/`, no entrypoint, no environment. Wire `seedImage-<name>`
-  into `flake.nix` `packages.<system>` for every file in
-  `examples/scenarios/*.json` (do not hardcode the names).
+  `mkSeedImage { scenarioName, scenarioPath }` that:
+  1. bakes the scenario via `pkgs.runCommand` (invoking the `baker`
+     shell wrapper),
+  2. assembles a `/seed/` tree by copying every bake artifact
+     byte-for-byte EXCEPT `synthesis-report.json`, which is replaced
+     by `jq 'del(.observation)' synthesis-report.json` to match
+     Feature 002's existing determinism rule (research §8, contract
+     [seed-image-layout.md](./contracts/seed-image-layout.md)),
+  3. wraps the assembled tree in
+     `pkgs.dockerTools.buildLayeredImage` (NOT `streamLayeredImage`,
+     research §1) with
+     `created = "1970-01-01T00:00:00Z"`,
+     `name = "ghcr.io/lambdasistemi/cardano-testnet-seed"`,
+     `architecture = "amd64"`, no entrypoint, no environment.
+  Wire `seedImage-<name>` into `flake.nix` `packages.<system>` for
+  every file in `examples/scenarios/*.json` (do not hardcode the
+  names; iterate the directory).
   - Files: `nix/seed-image.nix` (new), `flake.nix` (extend `packages`).
   - Validates: §I (scenario JSON only), §IV (Nix-first), §V (stock
-    `dockerTools`), data-model "Seed image", contract
-    [seed-image-layout.md](./contracts/seed-image-layout.md).
-  - Validation command: `nix build -L .#seedImage-local-fast .#seedImage-normal`
-    succeeds; both result symlinks point at non-empty docker-archive
-    files.
-  - Acceptance: `skopeo inspect docker-archive:./result-seedImage-local-fast | jq '.architecture, .os'`
-    yields `"amd64"` and `"linux"`; tree under `/seed/` matches the
-    layout contract; no manual scenario list anywhere in the flake.
+    `dockerTools` + `jq`), data-model "Seed image", contract
+    [seed-image-layout.md](./contracts/seed-image-layout.md), spec
+    FR-002.
+  - Validation command:
+    `nix build -L --out-link result-seedImage-local-fast .#seedImage-local-fast`
+    succeeds; the symlink resolves to a *materialized* docker-archive
+    tarball.
+  - Acceptance:
+    `skopeo inspect docker-archive:$(readlink -f result-seedImage-local-fast) | jq '.architecture, .os'`
+    yields `"amd64"` and `"linux"`; the layer tar contains
+    `seed/synthesis-report.json` whose JSON does NOT include an
+    `observation` key (`tar -xOf … seed/synthesis-report.json | jq -e 'has("observation") | not'`);
+    tree under `/seed/` matches the layout contract; no manual
+    scenario list anywhere in the flake.
   - Commit: `feat(distribution): add seed image flake outputs`.
 
-- [ ] **T002** [US3] Add a `seed-image-determinism` Nix check that
-  builds each scenario's image twice in the same derivation and
-  asserts equal manifest digests via
-  `skopeo inspect docker-archive:`. Wire it into `nix/checks.nix` and
-  add `.#checks.x86_64-linux.seed-image-determinism` to the Build Gate
+- [ ] **T002** [US3] Add a `seed-image-determinism` Nix check that, for
+  each committed scenario, builds the seed image twice in the same
+  derivation and asserts equal manifest digests via
+  `skopeo inspect docker-archive:<path>` (the materialised archive
+  produced by `buildLayeredImage`, research §1). Compare
+  `.config.digest` and the layer-digest list with `diff`. Wire it into
+  `nix/checks.nix` and add
+  `.#checks.x86_64-linux.seed-image-determinism` to the Build Gate
   job's `nix build` invocation in `.github/workflows/ci.yml`.
   - Files: `nix/checks.nix` (extend), `.github/workflows/ci.yml`
     (extend `build-gate.steps[*].run`).
   - Validates: §II (determinism), spec FR-006, contract
-    [publish-pipeline.md §"Determinism check"](./contracts/publish-pipeline.md).
-  - Validation command: `nix build .#checks.x86_64-linux.seed-image-determinism`
+    [publish-pipeline.md §"Determinism check"](./contracts/publish-pipeline.md),
+    research §1, §8.
+  - Validation command:
+    `nix build .#checks.x86_64-linux.seed-image-determinism`
     succeeds locally (in CI environment with cachix warm).
   - Acceptance: re-running the check is idempotent; mutating the
     `created` timestamp in `nix/seed-image.nix` (in a throwaway diff)
-    causes the check to fail loudly. Build Gate stays green at HEAD.
+    causes the check to fail loudly; reverting the
+    `synthesis-report.json` projection step (T001) so the full
+    timestamped report enters the image likewise causes the check to
+    fail. Build Gate stays green at HEAD.
   - Commit: `feat(distribution): enforce seed image determinism in build gate`.
 
 **Checkpoint**: foundational image produced and determinism enforced.
@@ -157,9 +180,15 @@ digest as the previous push.
 - [ ] **T005** [US2] Add `nix/seed-publish.nix` exposing
   `apps.<system>.publishSeedImages`. The app:
   - enumerates `examples/scenarios/*.json`,
-  - for each scenario, reads `metadata.json.scenarioDigest` from the
-    *built* image's `/seed/metadata.json` (extracted via
-    `skopeo copy docker-archive:… dir:…`),
+  - for each scenario, reads `metadata.json.inputDigest` (the field
+    name actually emitted by `src/Cardano/Testnet/Baker/Metadata.hs`
+    — see research §4) from the *built* image's
+    `/seed/metadata.json`. Extraction path:
+    `skopeo copy docker-archive:<built-archive> dir:<tmp> &&
+     jq -r '.inputDigest' <tmp>/.../seed/metadata.json` (or untar the
+    layer directly). The 64-hex value is the consumer-facing
+    `<scenarioDigest>` per
+    [contracts/artifact-identifier-scheme.md §"Source of"](./contracts/artifact-identifier-scheme.md),
   - reads the short commit SHA from `git rev-parse --short=7 HEAD`
     (passed in via env var `BAKER_COMMIT_SHA7` for hermeticity in
     derivations),

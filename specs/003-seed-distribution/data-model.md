@@ -14,7 +14,7 @@ artifacts — not row-shaped persistent records.
 | Field | Type | Source | Notes |
 |---|---|---|---|
 | `name` | `String` | committed `examples/scenarios/<name>.json` filename | unique per-repo identifier; sole user-facing scenario handle |
-| `digest` | `Hex64` | `metadata.json.scenarioDigest`, emitted by Feature 002 | content-addressable hash of the canonical scenario JSON |
+| `digest` | `Hex64` | `metadata.json.inputDigest`, emitted by Feature 002 | SHA-256 of the canonical scenario JSON. Identical hex to `synthesis-report.json.scenarioDigest`. The field name in `metadata.json` is `inputDigest`; the consumer-facing tag fragment is named `<scenarioDigest>`. Tag derivation reads `inputDigest`. |
 
 ### Baker build identity
 
@@ -26,9 +26,11 @@ artifacts — not row-shaped persistent records.
 
 ### Seed payload
 
-The image's filesystem under `/seed/`. This is exactly the directory the
+The image's filesystem under `/seed/`. This is the directory the
 baker writes when invoked as `cardano-testnet-baker bake --scenario <s>
---out <dir>`. Layout (from Feature 002):
+--out <dir>`, with one transformation: `synthesis-report.json` is
+projected to remove the `observation` block before it enters the image
+(see FR-002, FR-012). All other files pass through byte-identically.
 
 ```text
 /seed/
@@ -46,8 +48,11 @@ baker writes when invoked as `cardano-testnet-baker bake --scenario <s>
 ├── utxo-keys/
 │   └── faucet-<n>/{utxo.skey, utxo.vkey, address}
 ├── metadata.json
-└── synthesis-report.json
+└── synthesis-report.json   # observation block stripped; deterministic
 ```
+
+The on-disk projection is computed at image-build time as
+`jq 'del(.observation)' synthesis-report.json` — no Haskell change.
 
 ### Seed image
 
@@ -107,9 +112,9 @@ inputs against this rule before invoking `skopeo`.
     │
     │ baker bake
     ▼
-[/seed/ directory + metadata.json with scenarioDigest]
+[/seed/ directory + metadata.json with inputDigest (= consumer-facing scenarioDigest)]
     │
-    │ pkgs.dockerTools.streamLayeredImage
+    │ pkgs.dockerTools.buildLayeredImage
     ▼
 [oci-archive on disk, manifest digest D]
     │

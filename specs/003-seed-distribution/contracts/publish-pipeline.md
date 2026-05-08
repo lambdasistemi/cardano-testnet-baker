@@ -47,7 +47,7 @@ later publish job).
 | `bake` fails | Job red, no image built, no push. (Already covered by Feature 002 acceptance gates.) |
 | Image build is non-deterministic (digests differ) | `seed-image-determinism` check fails inside Build Gate. Job red, never reaches push. |
 | `compose/acceptance/run.sh` returns `verdict=rejected` | `seed-image-publish` fails; no `skopeo` invocation. |
-| Tag derivation fails (e.g. missing `scenarioDigest` in `metadata.json`) | Job red; this is a producer-side regression and is treated as such. |
+| Tag derivation fails (e.g. missing `inputDigest` in `metadata.json`) | Job red; this is a producer-side regression and is treated as such. |
 | Tag validation rejects a derived tag | Job red. (Sentinel against accidentally regenerated forbidden tags.) |
 | `skopeo copy` to primary tag fails | Job red. No second push attempted. |
 | `skopeo copy` to secondary tag fails | Job red. Primary tag is already attached and remains so; a re-run idempotently re-attaches both. |

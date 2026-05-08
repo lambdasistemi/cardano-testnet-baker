@@ -43,3 +43,8 @@
 - Items marked incomplete require spec updates before `/speckit.clarify` or
   `/speckit.plan`.
 - All clarifications resolved inline; spec is ready for `/speckit.plan`.
+- 2026-05-08 review pass on PR #12 surfaced three internal inconsistencies
+  (synthesis-report determinism, `inputDigest` vs `scenarioDigest`,
+  streamLayeredImage producing a script not an archive). All three resolved
+  in spec/plan/research/contracts/tasks/quickstart with no remaining
+  unknowns; FR-002, FR-003, FR-012 amended.

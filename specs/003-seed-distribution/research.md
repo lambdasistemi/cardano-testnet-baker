@@ -7,37 +7,47 @@ This file consolidates the empirical and procedural decisions made before
 implementation, so they are not re-litigated in code review. Each section
 records: Decision, Rationale, Alternatives considered.
 
-## 1. Image builder — `streamLayeredImage` vs `buildLayeredImage`
+## 1. Image builder — `buildLayeredImage` over `streamLayeredImage`
 
-**Decision**: prefer `pkgs.dockerTools.streamLayeredImage`; fall back to
-`pkgs.dockerTools.buildLayeredImage` only if streaming produces a different
-manifest digest across two consecutive `nix build` invocations under our
-existing pin set.
+**Decision**: use `pkgs.dockerTools.buildLayeredImage` so that
+`nix build .#seedImage-<scenario>` produces a *materialized*
+docker-archive on disk (the result symlink points at a tarball, not a
+stream script). All downstream tooling — `skopeo inspect docker-archive:`,
+`skopeo copy docker-archive:`, the determinism check — can then read the
+archive directly without an intermediate pipe-to-disk step.
 
-**Rationale**: `streamLayeredImage` produces a *script* that emits a
-docker-archive on stdout — the layer hashes and manifest are
-content-derived from inputs and the script itself is a fixed-output
-derivation only when its output is consumed. The Nix store path is
-deterministic given identical inputs. `buildLayeredImage` materializes the
-archive inside the Nix store; both are deterministic in principle, but
-`streamLayeredImage` avoids a second copy of the bake output's bytes inside
-the store and pipes more cleanly into `skopeo copy
-docker-archive:/dev/stdin docker://…`. Net effect: faster build, lower
-disk pressure, same manifest semantics.
+**Rationale**: `streamLayeredImage` produces a script whose stdout is
+the archive. That works for piping into `skopeo copy
+docker-archive:/dev/stdin`, but it forces every other tool that wants to
+*inspect* the archive — the determinism gate, the `seed-image-acceptance`
+check, the maintainer's local `skopeo inspect` — to first run the script
+into a temp file. Two paths means two opportunities for divergence (the
+inspect path uses a fresh archive every invocation, the push path uses a
+fresh archive every invocation; if either differs, false-positive
+determinism failures appear). `buildLayeredImage` collapses that to one
+materialized artifact: `result` *is* the archive, every consumer reads
+the same bytes.
+
+**Cost**: one extra copy of the seed bytes (~22 MB per scenario) lives
+in the Nix store. Negligible at this scale.
 
 **Alternatives considered**:
 
-- `buildLayeredImage` — equally deterministic, doubles disk usage at build
-  time. Acceptable fallback if streaming reveals a stability issue.
-- `dockerTools.buildImage` (single-layer) — works, but `dockerTools`
-  guidance prefers the layered variants for cache friendliness even at one
-  layer; no concrete reason to prefer it.
-- Hand-rolling an OCI manifest from `pkgs.runCommand` — strictly more code
-  to maintain, no benefit. Rejected.
+- `streamLayeredImage` — leaner store, but doubles tool surface and
+  invites the divergence described above. Originally chosen here, then
+  reversed once review pointed out that the quickstart and tasks both
+  assumed an archive output. Rejected.
+- `dockerTools.buildImage` (non-layered) — works for a single-layer
+  image, but `buildLayeredImage` is the modern default and gives the
+  registry the option to share blobs across pushes if a layer ever
+  becomes shared. No reason to opt out.
+- Hand-rolling an OCI manifest from `pkgs.runCommand` — strictly more
+  code, no benefit. Rejected.
 
-**Verification**: the CI determinism check builds the image twice and
-compares the manifest digest extracted via `skopeo inspect
-docker-archive:…`. Fail loud if they differ.
+**Verification**: the CI determinism check runs `nix build` twice and
+compares the manifest digest extracted via
+`skopeo inspect docker-archive:./result-<scenario>`. Fail loud if they
+differ.
 
 ## 2. Registry push tool — `skopeo` vs `docker`
 
@@ -49,10 +59,11 @@ docker-archive:<path> docker://ghcr.io/lambdasistemi/cardano-testnet-seed:<tag>`
 - `skopeo` does not require a running `dockerd`. The publish job runs on
   `runs-on: nixos`, where Docker is not assumed to be available; pulling
   in `dockerd` just to push an image is heavyweight and brittle.
-- `skopeo` accepts `docker-archive:/dev/stdin`, allowing the
-  `streamLayeredImage` script to pipe directly into the push:
-  `nix run .#seedImage-<scenario>-stream | skopeo copy
-  docker-archive:/dev/stdin docker://…:<tag>`.
+- `skopeo` reads `docker-archive:<path>` directly, so the materialized
+  archive produced by `buildLayeredImage` (research §1) feeds straight
+  into both `inspect` and `copy` invocations:
+  `skopeo copy docker-archive:$(readlink -f result-seedImage-<scenario>)
+   docker://ghcr.io/lambdasistemi/cardano-testnet-seed:<tag>`.
 - `skopeo` supports both `--src-tls-verify` and `--dest-tls-verify`,
   required by the constitution's pinning principle when validating remote
   manifests.
@@ -88,23 +99,41 @@ benefit to switching runner types.
 ## 4. Why no Haskell change is needed
 
 **Decision**: do not modify any Haskell module. Tag derivation is a `jq`
-expression over `metadata.json`; image assembly is `dockerTools` over the
-existing baker package output.
+expression over `metadata.json`; image assembly is `dockerTools` over
+the existing baker package output; `synthesis-report.json` projection
+is `jq 'del(.observation)'`.
 
 **Rationale**: Feature 002 already emits `metadata.json` with
-`scenarioId`, `scenarioDigest`, and `bakerVersion`. Computing
-`<scenario>-<scenarioDigest>` and `<scenario>-sha-<bakerCommitSha7>` from
-those values is a five-line shell snippet; promoting it into Haskell adds
-test surface, build time, and a CLI subcommand for no operational gain.
-Keeps the change strictly additive at the Nix and shell layer, which is
-where image distribution belongs.
+`scenarioId`, `inputDigest`, `bakerVersion`, `bakerCommit`, and
+`artifactDigests` (`src/Cardano/Testnet/Baker/Metadata.hs:74`).
+Computing `<scenario>-<inputDigest>` and `<scenario>-sha-<bakerCommitSha7>`
+from those values is a five-line shell snippet; promoting it into
+Haskell adds test surface, build time, and a CLI subcommand for no
+operational gain. Keeps the change strictly additive at the Nix and
+shell layer, which is where image distribution belongs.
+
+**Note on field naming**: `metadata.json` calls the canonical scenario
+hash `inputDigest`; the synthesis report (when it exists) calls the
+same value `scenarioDigest`. The publish app reads
+`metadata.json.inputDigest` because metadata is always present and
+deterministic. The consumer-facing tag fragment is named
+`<scenarioDigest>` for the same reason it always has been: that is the
+domain term consumers read. The translation is one line of `jq` and is
+documented in
+`contracts/artifact-identifier-scheme.md`.
 
 **Alternatives considered**:
 
 - A `cardano-testnet-baker tag` subcommand — possible if the tag scheme
   ever needs richer logic. Premature for v1.
-- Reading the digest from the OCI manifest itself — only available *after*
-  the image is built, but the tag must be known *before* the push. Rejected.
+- Reading the digest from the OCI manifest itself — only available
+  *after* the image is built, but the tag must be known *before* the
+  push. Rejected.
+- Renaming `inputDigest` → `scenarioDigest` in the Haskell layer to
+  make the names line up — out of scope for this feature, mechanical
+  but breaking for any downstream that already parses `metadata.json`
+  by name. Defer to a separate ticket if the inconsistency becomes
+  load-bearing.
 
 ## 5. Compose acceptance — extend the existing harness, do not duplicate
 
@@ -165,7 +194,48 @@ nil.
 - Full 40-char SHA — readable but verbose; `:scenario-sha-<40hex>` reads
   badly. Rejected.
 
-## 8. Failure semantics for partial publishes
+## 8. Synthesis-report determinism — strip `observation` at image-build time
+
+**Decision**: when assembling the image, project
+`synthesis-report.json` through `jq 'del(.observation)'` so the in-image
+copy carries only the deterministic fields (`scenarioId`,
+`scenarioDigest`, `bakerVersion`, `slotCount`, `profile`,
+`chainDb.path`, `chainDb.bytes`, `chainDb.fileCount`,
+`chainDb.packagedBytes`). The unpackaged bake output (in
+`tmp/synthesis/<scenario>/`) keeps its full report including
+`observation` for measurement purposes.
+
+**Rationale**: Feature 002's contract
+(`specs/002-chaindb-synthesis/contracts/artifact-layout.md`, Determinism
+Rules) explicitly classifies `observation.startedAt`,
+`observation.completedAt`, `observation.wallTimeMilliseconds`, and
+`observation.host` as host-dependent. The existing
+`example-bake-determinism` Nix check
+(`nix/checks.nix:32`) already knows this — it diffs the output trees
+with `--exclude synthesis-report.json` and then compares
+`jq 'del(.observation)' synthesis-report.json` separately. Feature 003's
+determinism gate (T002) needs the *image* manifest digest to be
+byte-identical across rebuilds, which is impossible if the image
+carries the timestamps. Stripping observation at image-build time
+matches what 002 already does for its own determinism story and gives
+consumers exactly the fields they actually need from a seed.
+
+**Alternatives considered**:
+
+- Drop `synthesis-report.json` from the image entirely — loses
+  `slotCount`, `profile`, and `chainDb.*` size facts that consumers
+  legitimately want. Rejected.
+- Ship the full report, document the digest as "non-deterministic in
+  observation but otherwise stable" — incompatible with FR-006 (image
+  manifest digest byte-identical across rebuilds). Rejected.
+- Modify the Haskell `synthesisReport` to omit observation entirely —
+  out of scope; observation data is useful diagnostically in the
+  unpackaged output. Rejected.
+- Have the baker emit two reports (full + projected) — premature
+  abstraction; the projection is a one-line `jq` at the image-build
+  layer. Rejected.
+
+## 9. Failure semantics for partial publishes
 
 **Decision**: the publish step is "all-or-nothing per scenario". The
 script first pushes the primary tag, then the secondary tag, and treats a

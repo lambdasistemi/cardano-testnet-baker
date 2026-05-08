@@ -39,8 +39,19 @@ whose root contains exactly the tree below.
     │       ├── utxo.skey
     │       └── utxo.vkey
     ├── metadata.json
-    └── synthesis-report.json
+    └── synthesis-report.json   # observation block stripped (deterministic projection)
 ```
+
+The image's `synthesis-report.json` is the deterministic projection
+described in [../research.md §8](../research.md): the original
+`observation` block — `host`, `startedAt`, `completedAt`,
+`wallTimeMilliseconds` — is removed at image-build time via
+`jq 'del(.observation)'`. The remaining fields (`scenarioId`,
+`scenarioDigest`, `bakerVersion`, `slotCount`, `profile`, and the full
+`chainDb.*` size facts) are byte-identical across rebuilds.
+
+Consumers that need producer-side wall-clock measurements must read the
+unpackaged bake output from a CI run — the image does not carry them.
 
 ## File-mode contract
 

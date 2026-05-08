@@ -11,13 +11,15 @@ Three audiences, three flows.
 cd /code/cardano-testnet-baker
 
 # 1. Build images for every committed scenario.
+#    Each `result-...` symlink is a materialized docker-archive
+#    (buildLayeredImage), readable directly by skopeo.
 nix build -L \
-  .#seedImage-local-fast \
-  .#seedImage-normal
+  --out-link result-seedImage-local-fast .#seedImage-local-fast \
+  --out-link result-seedImage-normal     .#seedImage-normal
 
 # 2. Inspect the manifest digest for a scenario.
 nix run nixpkgs#skopeo -- \
-  inspect --raw "docker-archive:./result-seedImage-local-fast" \
+  inspect --raw "docker-archive:$(readlink -f result-seedImage-local-fast)" \
   | jq '.config.digest, .layers[].digest'
 
 # 3. Read tags the publish job *would* push (without pushing).
@@ -25,7 +27,7 @@ nix run .#publishSeedImages -- --dry-run
 
 # 4. (Optional) Smoke-test the seed inside the freshly built image.
 compose/acceptance/run.sh local-fast \
-  docker-archive:./result-seedImage-local-fast
+  "docker-archive:$(readlink -f result-seedImage-local-fast)"
 ```
 
 `--dry-run` prints lines of the form:
@@ -46,12 +48,12 @@ Push happens only in CI; the maintainer never `skopeo`s by hand.
 git fetch origin
 git checkout 832deb6  # the secondary tag's <bakerCommitSha7>
 
-# 2. Build the image locally.
-nix build .#seedImage-local-fast
+# 2. Build the image locally (materialized archive at result-...).
+nix build --out-link result-seedImage-local-fast .#seedImage-local-fast
 
 # 3. Read the local manifest digest.
 nix run nixpkgs#skopeo -- \
-  inspect --raw "docker-archive:./result-seedImage-local-fast" \
+  inspect --raw "docker-archive:$(readlink -f result-seedImage-local-fast)" \
   | jq -r '.config.digest'
 # → sha256:<64 hex>
 
