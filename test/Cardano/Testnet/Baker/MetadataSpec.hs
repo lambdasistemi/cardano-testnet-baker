@@ -57,6 +57,31 @@ spec = describe "metadata canonicalization" $ do
         BS.isInfixOf "createdAt" encoded `shouldBe` False
         BS.isInfixOf "timestamp" encoded `shouldBe` False
 
+    it "keeps synthesis observation fields out of deterministic metadata" $ do
+        let encoded =
+                LBS.toStrict $
+                    canonicalJsonBytes $
+                        metadataToValue $
+                            BakeMetadata
+                                { metadataScenarioId = "normal"
+                                , metadataSchemaVersion = 1
+                                , metadataBakerVersion = "0.1.0.0"
+                                , metadataBakerCommit = "dirty"
+                                , metadataInputDigest = Digest "input"
+                                , metadataArtifactDigests =
+                                    [
+                                        ( "synthesis-report.json"
+                                        , Digest "report"
+                                        )
+                                    ]
+                                , metadataDerivationVersion = "v1"
+                                , metadataCreatedBy = "cardano-testnet-baker"
+                                }
+        BS.isInfixOf "wallTimeMilliseconds" encoded `shouldBe` False
+        BS.isInfixOf "startedAt" encoded `shouldBe` False
+        BS.isInfixOf "completedAt" encoded `shouldBe` False
+        BS.isInfixOf "host" encoded `shouldBe` False
+
 unorderedValue :: Value
 unorderedValue = object ["b" .= Number 1, "a" .= Bool True]
 

@@ -40,10 +40,14 @@ import Cardano.Testnet.Baker.Scenario
 import Cardano.Testnet.Baker.Synthesis
     ( BulkCredential
     , SynthesisError (..)
+    , SynthesisObservation (..)
+    , SynthesisReport (..)
     , SynthesisRun (..)
     , SynthesisRunner (..)
     , bulkCredentialFromPoolArtifacts
+    , measureChainDb
     , renderBulkCredentials
+    , renderSynthesisReport
     )
 import Cardano.Testnet.Baker.Validation
     ( ValidationFailure
@@ -73,6 +77,13 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
+import Data.Time
+    ( UTCTime
+    , defaultTimeLocale
+    , diffUTCTime
+    , formatTime
+    , getCurrentTime
+    )
 import System.Directory
     ( copyFile
     , createDirectoryIfMissing
@@ -93,6 +104,10 @@ import System.Posix.Files
     ( ownerReadMode
     , ownerWriteMode
     , setFileMode
+    )
+import System.Posix.Unistd
+    ( SystemID (..)
+    , getSystemID
     )
 
 -- | Inputs for one deterministic bake.
@@ -219,7 +234,7 @@ writeStagedOutput runner request stageDir = do
     createDirectoryIfMissing True stageDir
     for_ artifactPaths $ \relativePath ->
         writeArtifact stageDir scenario generatedArtifacts relativePath
-    synthesisResult <- runRequestedSynthesis runner scenario stageDir
+    synthesisResult <- runRequestedSynthesis runner request stageDir
     case synthesisResult of
         Left err -> pure (Left (BakeSynthesisFailed err))
         Right () -> do
@@ -234,12 +249,12 @@ writeStagedOutput runner request stageDir = do
 
 runRequestedSynthesis
     :: Maybe SynthesisRunner
-    -> Scenario
+    -> BakeRequest
     -> FilePath
     -> IO (Either SynthesisError ())
 runRequestedSynthesis Nothing _ _ =
     pure (Right ())
-runRequestedSynthesis (Just runner) scenario stageDir =
+runRequestedSynthesis (Just runner) request stageDir =
     case requestedSlotCount scenario of
         Nothing -> pure (Right ())
         Just slotCount -> do
@@ -257,6 +272,7 @@ runRequestedSynthesis (Just runner) scenario stageDir =
                     case configResult of
                         Left err -> pure (Left err)
                         Right configPath -> do
+                            startedAt <- getCurrentTime
                             result <-
                                 runSynthesis
                                     runner
@@ -270,11 +286,63 @@ runRequestedSynthesis (Just runner) scenario stageDir =
                                         , synthesisRunSlotCount =
                                             slotCount
                                         }
+                            completedAt <- getCurrentTime
                             case result of
                                 Left err -> pure (Left err)
                                 Right () -> do
+                                    report <-
+                                        synthesisReport
+                                            request
+                                            slotCount
+                                            chainDbPath
+                                            startedAt
+                                            completedAt
+                                    LBS.writeFile
+                                        ( stageDir
+                                            </> "synthesis-report.json"
+                                        )
+                                        (renderSynthesisReport report)
                                     removeIfExists scratchDir
                                     pure (Right ())
+  where
+    scenario = bakeRequestScenario request
+
+synthesisReport
+    :: BakeRequest
+    -> Int
+    -> FilePath
+    -> UTCTime
+    -> UTCTime
+    -> IO SynthesisReport
+synthesisReport request slotCount chainDbPath startedAt completedAt = do
+    chainDb <- measureChainDb chainDbPath
+    host <- Text.pack . nodeName <$> getSystemID
+    pure
+        SynthesisReport
+            { reportScenarioId = scenarioScenarioId scenario
+            , reportScenarioDigest =
+                digestBytes (LBS.toStrict (bakeRequestScenarioBytes request))
+            , reportBakerVersion = Text.pack libraryVersion
+            , reportSlotCount = slotCount
+            , reportProfile = scenarioSynthesis scenario >>= synthesisProfile
+            , reportChainDb = chainDb
+            , reportObservation =
+                SynthesisObservation
+                    { observationWallTimeMilliseconds =
+                        floor $
+                            diffUTCTime completedAt startedAt
+                                * 1000
+                    , observationStartedAt = formatUtc startedAt
+                    , observationCompletedAt = formatUtc completedAt
+                    , observationHost = host
+                    }
+            }
+  where
+    scenario = bakeRequestScenario request
+
+formatUtc :: UTCTime -> Text
+formatUtc =
+    Text.pack . formatTime defaultTimeLocale "%Y-%m-%dT%H:%M:%SZ"
 
 prepareSynthesisGenesisCopy
     :: FilePath

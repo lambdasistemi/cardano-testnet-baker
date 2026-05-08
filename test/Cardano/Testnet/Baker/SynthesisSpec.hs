@@ -14,13 +14,19 @@ import Cardano.Testnet.Baker.Keys
     ( PoolKeyArtifacts (..)
     , derivePoolKeyArtifacts
     )
+import Cardano.Testnet.Baker.Metadata (Digest (..))
 import Cardano.Testnet.Baker.Scenario (PoolDeclaration (..))
 import Cardano.Testnet.Baker.Synthesis
-    ( SynthesisError (..)
+    ( ChainDbMeasurement (..)
+    , SynthesisError (..)
+    , SynthesisObservation (..)
+    , SynthesisReport (..)
     , SynthesisRun (..)
     , bulkCredentialFromPoolArtifacts
     , dbSynthesizerRunner
+    , measureChainDb
     , renderBulkCredentials
+    , renderSynthesisReport
     , runSynthesis
     )
 import Control.Exception (finally)
@@ -50,6 +56,7 @@ import Test.Hspec
     , it
     , shouldBe
     , shouldReturn
+    , shouldSatisfy
     )
 
 spec :: Spec
@@ -164,6 +171,52 @@ spec = do
                             "out\n"
                             "err\n"
                         )
+
+    describe "synthesis measurements" $ do
+        it "renders the measurement report contract" $
+            renderSynthesisReport
+                SynthesisReport
+                    { reportScenarioId = "normal"
+                    , reportScenarioDigest = Digest "scenario-digest"
+                    , reportBakerVersion = "0.1.0.0"
+                    , reportSlotCount = 300000
+                    , reportProfile = Just "normal-realistic"
+                    , reportChainDb =
+                        ChainDbMeasurement
+                            { chainDbBytes = 123
+                            , chainDbFileCount = 4
+                            , chainDbPackagedBytes = 456
+                            }
+                    , reportObservation =
+                        SynthesisObservation
+                            { observationWallTimeMilliseconds = 789
+                            , observationStartedAt =
+                                "2026-05-07T00:00:00Z"
+                            , observationCompletedAt =
+                                "2026-05-07T00:00:01Z"
+                            , observationHost = "runner"
+                            }
+                    }
+                `shouldBe` "{\"bakerVersion\":\"0.1.0.0\",\"chainDb\":{\"bytes\":123,\"fileCount\":4,\"packagedBytes\":456,\"path\":\"chain-db\"},\"observation\":{\"completedAt\":\"2026-05-07T00:00:01Z\",\"host\":\"runner\",\"startedAt\":\"2026-05-07T00:00:00Z\",\"wallTimeMilliseconds\":789},\"scenarioDigest\":\"scenario-digest\",\"scenarioId\":\"normal\",\"schemaVersion\":1,\"synthesis\":{\"profile\":\"normal-realistic\",\"slotCount\":300000}}"
+
+        it
+            "measures ChainDB bytes, file count, and deterministic package proxy"
+            $ withScratch "measurement"
+            $ \root -> do
+                let chainDb = root </> "chain-db"
+                createDirectoryIfMissing True (chainDb </> "immutable")
+                createDirectoryIfMissing True (chainDb </> "ledger")
+                writeFile (chainDb </> "immutable/chunk") "abc"
+                writeFile (chainDb </> "ledger/state") "de"
+
+                first <- measureChainDb chainDb
+                second <- measureChainDb chainDb
+
+                chainDbBytes first `shouldBe` 5
+                chainDbFileCount first `shouldBe` 2
+                chainDbPackagedBytes first
+                    `shouldSatisfy` (> chainDbBytes first)
+                second `shouldBe` first
 
 decodeRendered :: Either err LBS.ByteString -> IO [[Value]]
 decodeRendered = \case

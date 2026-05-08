@@ -30,7 +30,12 @@ in {
   '';
 
   example-bake-determinism = pkgs.runCommand "example-bake-determinism" {
-    nativeBuildInputs = [ baker pkgs.diffutils pkgs.findutils ];
+    nativeBuildInputs = [
+      baker
+      pkgs.diffutils
+      pkgs.findutils
+      pkgs.jq
+    ];
     src = ../.;
   } ''
     first="$TMPDIR/local-fast-a"
@@ -47,7 +52,11 @@ in {
     test -d "$first/chain-db/ledger"
     test -d "$first/chain-db/volatile"
 
-    diff -ru "$first" "$second"
+    diff -ru --exclude synthesis-report.json "$first" "$second"
+    jq 'del(.observation)' "$first/synthesis-report.json" > "$TMPDIR/local-fast-a.report"
+    jq 'del(.observation)' "$second/synthesis-report.json" > "$TMPDIR/local-fast-b.report"
+    diff -u "$TMPDIR/local-fast-a.report" "$TMPDIR/local-fast-b.report"
+
     (cd "$first" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/local-fast-a.modes"
     (cd "$second" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/local-fast-b.modes"
     diff -u "$TMPDIR/local-fast-a.modes" "$TMPDIR/local-fast-b.modes"
