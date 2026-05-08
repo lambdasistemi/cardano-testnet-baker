@@ -29,16 +29,74 @@ the steps above for every committed scenario.
 ## Determinism check
 
 A separate Nix-side check (`seed-image-determinism`) builds each
-scenario's image twice in the same CI run, extracts the manifest
-digest from each archive, and fails if they differ. Order:
+scenario's image twice (as two genuinely independent Nix derivations,
+forced via a `derivationSuffix` parameter on `mkSeedImage` so they do
+not share the inner `streamLayeredImage` derivation) and asserts that
+the consumer-visible image identity is byte-identical across the
+pair. Order:
 
 ```text
-build A → build B → skopeo inspect docker-archive:A → skopeo inspect docker-archive:B → diff
+build A → build B → extract manifest+config+layer.tar from each → diff
 ```
 
-The determinism check is wired into the `Build Gate` job alongside the
-existing checks (so any digest divergence fails the gate, not the
-later publish job).
+Concretely the check verifies, per scenario, two distinct
+properties of the published artifact:
+
+1. **Deterministic seed payload.** Each archive carries exactly
+   one layer; the two `layer.tar` payloads are byte-identical
+   (`sha256sum` equal). This guards against host-clock or
+   hostname leaks in the customisation layer — i.e. it ensures
+   that the bytes of `/seed/...` a consumer reads after
+   `COPY --from=` are a pure function of the source code and the
+   flake lock.
+2. **Stable image-config fields.** The two image configs' fields
+   outside `history` are byte-identical under `jq 'del(.history)'`.
+   The fields covered are `architecture`, `os`, `created`,
+   `config`, and `rootfs.diff_ids` — everything that affects how
+   a consumer interprets the layer and the surrounding metadata.
+
+Plus a fixed-value invariant: `architecture == "amd64"`,
+`os == "linux"`, and `created` begins with `1970-01-01T00:00:00`.
+Mutating any of these in `nix/seed-image.nix` flips the
+assertion.
+
+The gate does *not* compare the OCI **manifest digest** between
+the two test builds, and it does *not* compare the **config
+digest** between them. It compares the deterministic seed payload
+plus the stable consumer-facing config fields above. The next
+section explains why "manifest digest equality across the two
+test builds" is not the property the gate can or should enforce.
+
+### Why the gate does not compare the manifest digest
+
+`pkgs.dockerTools.streamLayeredImage` writes `history[].comment`
+into the OCI image config as
+`"store paths: ['/nix/store/<hash>-<customisation-layer-name>']"`.
+Because the round-1 reviewer requirement is that the two test
+builds be *genuinely independent* — so non-determinism in the
+customisation layer is observable rather than masked by Nix's
+eval cache — the two builds have, by construction, different
+customisation-layer store paths. That divergence flows into
+`history.comment`, into the config sha, and finally into the OCI
+manifest digest.
+
+So the literal property "byte-identical manifest digest across
+two genuinely independent test builds" cannot hold for archives
+produced by `dockerTools.streamLayeredImage` in this nixpkgs
+vintage. The gate therefore checks something weaker but
+sufficient for FR-006: the *seed payload* is byte-identical
+across builds and the *consumer-facing config fields* are
+byte-identical across builds. A consumer pulling the published
+image by tag receives one specific manifest, with one specific
+manifest digest; the gate guarantees that whatever digest CI
+ends up pushing is a pure function of the source — i.e. two CI
+runs of the same commit, with the same flake lock, push the
+same manifest digest, even though that single-shot identity is
+not what the in-derivation gate compares.
+
+The check is wired into the `Build Gate` job alongside the
+existing checks (so any layer-payload or meaningful-config
+divergence fails the gate, not the later publish job).
 
 ## Failure modes
 

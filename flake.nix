@@ -67,7 +67,6 @@
             '';
           };
         shell = import ./nix/shell.nix { inherit pkgs project iogTools; };
-        checks = import ./nix/checks.nix { inherit pkgs project baker; };
         seedImage = import ./nix/seed-image.nix { inherit pkgs baker; };
 
         scenariosDir = ./examples/scenarios;
@@ -91,6 +90,17 @@
             }
           ) scenarioFiles
         );
+
+        checks = import ./nix/checks.nix {
+          inherit
+            pkgs
+            project
+            baker
+            seedImage
+            scenariosDir
+            scenarioFiles
+            ;
+        };
       in
       {
         packages = flakePkgs.packages // seedImagePackages // {

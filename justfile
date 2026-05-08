@@ -59,6 +59,7 @@ build-gate:
         .#checks.x86_64-linux.scenario-schema \
         .#checks.x86_64-linux.example-bake-determinism \
         .#checks.x86_64-linux.synthesis-report-shape \
+        .#checks.x86_64-linux.seed-image-determinism \
         .#devShells.x86_64-linux.default.inputDerivation
 
 # Validate committed scenario examples against the published schema.

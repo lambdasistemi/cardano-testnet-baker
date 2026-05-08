@@ -96,16 +96,38 @@ inside the Build Gate.
   - Commit: `feat(distribution): add seed image flake outputs`.
 
 - [ ] **T002** [US3] Add a `seed-image-determinism` Nix check that, for
-  each committed scenario, builds the seed image twice in the same
-  derivation and asserts equal manifest digests via
-  `skopeo inspect docker-archive:<path>` (the materialised archive
-  produced by `buildLayeredImage`, research §1). Compare
-  `.config.digest` and the layer-digest list with `diff`. Wire it into
-  `nix/checks.nix` and add
+  each committed scenario, builds the seed image twice as *genuinely
+  independent* derivations (forced via a `derivationSuffix` parameter
+  on `mkSeedImage` so the customisation-layer build does not share
+  the inner `streamLayeredImage` derivation), then asserts the
+  consumer-visible image identity is byte-identical across the pair.
+  Skopeo cannot be used inside the Nix sandbox (it insists on
+  writing to `/var/tmp` regardless of `$TMPDIR`), so the comparison
+  is performed by extracting the docker-archive directly and
+  diffing the relevant fields:
+  1. **Layer payload**: each archive must carry exactly one layer;
+     the two `layer.tar` files must have identical `sha256sum`.
+  2. **Meaningful config**: the OCI image config under
+     `jq 'del(.history)'` must `diff -u` clean. `history` is
+     excluded because `dockerTools.streamLayeredImage` embeds the
+     customisation-layer's Nix-store path in `history[].comment`,
+     which differs by construction between two genuinely
+     independent builds — see contract
+     [`publish-pipeline.md §"Determinism check"`](./contracts/publish-pipeline.md)
+     for the full rationale and what the consumer-visible identity
+     actually is.
+  3. **Fixed-value invariants**: `architecture == "amd64"`,
+     `os == "linux"`, `created` begins with
+     `1970-01-01T00:00:00`.
+  Wire into `nix/checks.nix` and add
   `.#checks.x86_64-linux.seed-image-determinism` to the Build Gate
-  job's `nix build` invocation in `.github/workflows/ci.yml`.
-  - Files: `nix/checks.nix` (extend), `.github/workflows/ci.yml`
-    (extend `build-gate.steps[*].run`).
+  job's `nix build` invocation in `.github/workflows/ci.yml` (and
+  to `just build-gate` for parity).
+  - Files: `nix/seed-image.nix` (add `derivationSuffix`),
+    `nix/checks.nix` (extend), `flake.nix` (thread `seedImage`,
+    `scenariosDir`, `scenarioFiles` to checks),
+    `.github/workflows/ci.yml` (extend `build-gate.steps[*].run`),
+    `justfile` (extend `build-gate` recipe).
   - Validates: §II (determinism), spec FR-006, contract
     [publish-pipeline.md §"Determinism check"](./contracts/publish-pipeline.md),
     research §1, §8.
@@ -114,10 +136,11 @@ inside the Build Gate.
     succeeds locally (in CI environment with cachix warm).
   - Acceptance: re-running the check is idempotent; mutating the
     `created` timestamp in `nix/seed-image.nix` (in a throwaway diff)
-    causes the check to fail loudly; reverting the
+    flips the fixed-value assertion; reverting the
     `synthesis-report.json` projection step (T001) so the full
-    timestamped report enters the image likewise causes the check to
-    fail. Build Gate stays green at HEAD.
+    timestamped report enters the image likewise flips the
+    layer-payload byte-equality check. Build Gate stays green at
+    HEAD.
   - Commit: `feat(distribution): enforce seed image determinism in build gate`.
 
 **Checkpoint**: foundational image produced and determinism enforced.
@@ -288,9 +311,28 @@ matches what source produces.
 documented commands, observe matching manifest digests against the
 registry without trusting it.
 
-US3 is structurally satisfied by Phase 2 (T002 enforces determinism)
-and Phase 4 (T007 documents the offline reproduction walkthrough). No
-additional implementation tasks are required for US3.
+US3 is satisfied by the *combination* of Phase 2 and Phase 4, not by
+T002 alone:
+
+- T002 (Phase 2) enforces the in-gate determinism oracle: byte-
+  identical `layer.tar` payload across genuinely independent test
+  builds, and byte-identical image-config fields outside `history`.
+  It does *not* directly compare OCI manifest digests across the
+  test pair (see FR-006 and
+  [contracts/publish-pipeline.md §"Determinism check"](./contracts/publish-pipeline.md)
+  for why).
+- T006 (Phase 3) is the publish job that materialises a single CI
+  build per scenario as a registry manifest. Because the customisation
+  layer's store path is fully determined by source + flake lock, two
+  CI pushes at the same baker commit publish the same manifest digest.
+- T007 (Phase 4) is the documented offline-reproduction walkthrough
+  that turns the above two properties into a procedure the reviewer
+  follows: rebuild from source, take the local manifest digest, and
+  compare it against the registry's digest for the published tag.
+  This is where the manifest-digest equality the independent test
+  observes actually comes from.
+
+No additional implementation tasks are required for US3.
 
 **Checkpoint US3**: nothing more to do.
 

@@ -42,6 +42,7 @@ jobs:
           .#unit-tests
           .#checks.x86_64-linux.cabal-check
           .#checks.x86_64-linux.haddock
+          .#checks.x86_64-linux.seed-image-determinism
           .#devShells.x86_64-linux.default.inputDerivation
 
   scenario-schema:

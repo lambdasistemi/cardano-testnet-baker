@@ -178,9 +178,30 @@ tag in the registry.
 - **FR-005**: The system MUST NOT publish moving tags. `latest`, `main`,
   branch names, and any other tag whose target can change without a content
   change are explicitly forbidden.
-- **FR-006**: Re-running the publish flow at the same baker commit, with
-  the same scenario JSON, MUST produce a byte-identical artifact manifest
-  digest. This MUST be exercised by a determinism check in the build gate.
+- **FR-006**: The publish artifact MUST carry a deterministic seed
+  payload and stable image-config fields. Concretely: re-running the
+  publish flow at the same baker commit, with the same scenario JSON
+  and the same flake lock, MUST produce (a) byte-identical `layer.tar`
+  bytes for every layer in the OCI archive, and (b) byte-identical
+  image-config fields modulo `history`. The build gate MUST exercise
+  both properties with a determinism check that builds each scenario's
+  image twice as genuinely independent derivations.
+
+  This wording deliberately stops short of "byte-identical manifest
+  digest" because `dockerTools.streamLayeredImage` embeds the
+  customisation-layer's Nix-store path in `history[].comment`. Two
+  genuinely independent test builds (the only way the gate can
+  observe non-determinism in the build script itself) get distinct
+  store paths there by construction, so the OCI manifest digest
+  cannot be byte-identical across the test pair even when every
+  consumer-visible byte of the artifact is. In production, where CI
+  runs *one* build per scenario, the customisation-layer store path
+  is fully determined by the source code and the flake lock; two CI
+  runs of the same commit therefore push the same manifest digest.
+  See
+  [contracts/publish-pipeline.md §"Determinism check"](./contracts/publish-pipeline.md)
+  for the full rationale and the exact properties the gate
+  enforces.
 - **FR-007**: Before any artifact is published for a scenario, the existing
   Docker Compose acceptance harness MUST succeed against the seed extracted
   from the artifact about to be published. Publishing MUST NOT proceed if
@@ -242,10 +263,20 @@ tag in the registry.
 - **SC-001**: A downstream operator can switch from a hand-baked seed
   directory to the published artifact by changing one identifier in their
   Dockerfile, and no other consumer-side change is required.
-- **SC-002**: For an unchanged scenario, two consecutive baker pushes
-  produce the same artifact manifest digest. Verified by an automated
-  determinism check in the build gate that compares the digests across
-  rebuilds.
+- **SC-002**: For an unchanged scenario, the published artifact has a
+  deterministic seed payload and stable image-config fields across
+  rebuilds. Verified by the automated `seed-image-determinism` check
+  in the build gate, which builds the image twice as genuinely
+  independent derivations and asserts (a) byte-identical `layer.tar`
+  bytes and (b) byte-identical image-config fields modulo `history`.
+  See FR-006 and
+  [contracts/publish-pipeline.md §"Determinism check"](./contracts/publish-pipeline.md)
+  for why the in-gate oracle is layer + history-stripped config rather
+  than the OCI manifest digest. Two consecutive CI pushes of the same
+  baker commit, with the same flake lock, do produce the same registry
+  manifest digest — that's the production-side property the spec
+  promises consumers — but it is established by the determinism of
+  the build closure, not directly compared by the in-gate check.
 - **SC-003**: A reviewer can reproduce any published artifact from source
   offline — no registry pulls, no CI runner trust — and the manifest digest
   matches the published one. Verified by the documented offline reproduction

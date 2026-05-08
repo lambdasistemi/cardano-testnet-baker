@@ -25,11 +25,33 @@
 let
   imageName = "ghcr.io/lambdasistemi/cardano-testnet-seed";
 
+  # `derivationSuffix` lets a caller (in particular the
+  # `seed-image-determinism` check) ask for two genuinely
+  # independent builds of the same scenario. The suffix is
+  # appended to the *bakeOut* derivation name, which percolates
+  # through to the `streamLayeredImage` derivation hash (because
+  # `extraCommands` captures `${bakeOut}` and that store path
+  # changes), so each call below produces a distinct
+  # customisation-layer build. The OCI image's `name`, `tag`,
+  # `created`, `architecture`, and `config` are unchanged. The
+  # `layer.tar` payload is also byte-identical across the pair
+  # (the customisation-layer's content is fully determined by
+  # the bakeOut content, which is deterministic across renamed
+  # bakeOut derivations) — that's the property the
+  # `seed-image-determinism` check relies on as its oracle for
+  # host-clock / hostname leaks. The OCI config differs only in
+  # `history[].comment`, which embeds the customisation-layer's
+  # Nix-store path; the check excludes that field per
+  # contract `publish-pipeline.md §"Determinism check"`.
   mkSeedImage =
-    { scenarioName, scenarioPath }:
+    {
+      scenarioName,
+      scenarioPath,
+      derivationSuffix ? "",
+    }:
     let
       bakeOut =
-        pkgs.runCommand "${scenarioName}-bake"
+        pkgs.runCommand "${scenarioName}-bake${derivationSuffix}"
           {
             nativeBuildInputs = [ baker ];
           }
