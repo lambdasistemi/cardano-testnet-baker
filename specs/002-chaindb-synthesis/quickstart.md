@@ -49,6 +49,17 @@ jq . tmp/synthesis/normal/synthesis-report.json
 Use the report to inspect on-disk ChainDB size, packaged-size proxy, file
 count, and synthesis wall time.
 
+Observed local run on 2026-05-08:
+
+```text
+report: tmp/synthesis/normal/synthesis-report.json
+slotCount: 300000
+chainDb.bytes: 22381220
+chainDb.fileCount: 217
+chainDb.packagedBytes: 22408383
+observation.wallTimeMilliseconds: 122351
+```
+
 ## 4. Run Compose Seed Acceptance
 
 ```bash

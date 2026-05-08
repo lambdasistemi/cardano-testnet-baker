@@ -30,12 +30,7 @@ in {
   '';
 
   example-bake-determinism = pkgs.runCommand "example-bake-determinism" {
-    nativeBuildInputs = [
-      baker
-      pkgs.diffutils
-      pkgs.findutils
-      pkgs.jq
-    ];
+    nativeBuildInputs = [ baker pkgs.diffutils pkgs.findutils pkgs.jq ];
     src = ../.;
   } ''
     first="$TMPDIR/local-fast-a"
@@ -60,6 +55,35 @@ in {
     (cd "$first" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/local-fast-a.modes"
     (cd "$second" && find . -type f -printf '%P %m\n' | sort) > "$TMPDIR/local-fast-b.modes"
     diff -u "$TMPDIR/local-fast-a.modes" "$TMPDIR/local-fast-b.modes"
+    touch "$out"
+  '';
+
+  synthesis-report-shape = pkgs.runCommand "synthesis-report-shape" {
+    nativeBuildInputs = [ baker pkgs.jq ];
+    src = ../.;
+  } ''
+    outdir="$TMPDIR/local-fast"
+    cardano-testnet-baker bake \
+      --scenario "$src/examples/scenarios/local-fast.json" \
+      --out "$outdir"
+
+    jq -e '
+      .schemaVersion == 1 and
+      .scenarioId == "local-fast" and
+      (.scenarioDigest | type == "string" and length == 64) and
+      (.bakerVersion | type == "string" and length > 0) and
+      .synthesis.slotCount == 720 and
+      .synthesis.profile == "local-fast-ci" and
+      .chainDb.path == "chain-db" and
+      (.chainDb.bytes | type == "number" and . > 1024) and
+      (.chainDb.fileCount | type == "number" and . >= 10) and
+      (.chainDb.packagedBytes | type == "number") and
+      (.chainDb.packagedBytes > .chainDb.bytes) and
+      (.observation.wallTimeMilliseconds | type == "number" and . >= 0) and
+      (.observation.startedAt | type == "string" and length > 0) and
+      (.observation.completedAt | type == "string" and length > 0) and
+      (.observation.host | type == "string" and length > 0)
+    ' "$outdir/synthesis-report.json" >/dev/null
     touch "$out"
   '';
 }
