@@ -231,4 +231,50 @@ in {
     ${pkgs.lib.concatMapStringsSep "\n" determinismCheckScript seedImagePairs}
     touch "$out"
   '';
+
+  # `seed-image-acceptance` is the canonical driver for the
+  # build-image-then-run-acceptance flow. It is exposed as a
+  # flake check so the GHA `compose-acceptance` job can build
+  # it (`nix build .#checks.x86_64-linux.seed-image-acceptance`)
+  # and then invoke `result/bin/seed-image-acceptance`, keeping
+  # the local-reproduction command and the CI step bit-for-bit
+  # identical. The wrapper iterates the same `scenarioFiles`
+  # set the rest of the flake enumerates, so adding a new
+  # scenario JSON to `examples/scenarios/` immediately extends
+  # the acceptance coverage without touching CI yaml.
+  #
+  # Intentionally NOT added to the Build Gate's `nix build`
+  # invocation: the wrapper itself builds with no Docker
+  # access, but actually running it requires Docker, so the
+  # host must be the `compose-acceptance` runner
+  # (`runs-on: ubuntu-latest`), not the Build Gate runner
+  # (`runs-on: nixos`).
+  seed-image-acceptance =
+    let
+      scenarioNames = map (f: pkgs.lib.removeSuffix ".json" f) scenarioFiles;
+      scenarioListBash = pkgs.lib.concatMapStringsSep " " (n: "'${n}'") scenarioNames;
+    in
+    pkgs.writeShellApplication {
+      name = "seed-image-acceptance";
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.gnutar
+        pkgs.jq
+        pkgs.skopeo
+      ];
+      text = ''
+        set -euo pipefail
+        scenarios=( ${scenarioListBash} )
+        if [[ $# -gt 0 ]]; then
+          scenarios=( "$@" )
+        fi
+        for scenario in "''${scenarios[@]}"; do
+          echo "=== seed-image-acceptance: $scenario ==="
+          out_link="result-seedImage-$scenario"
+          nix build ".#seedImage-$scenario" --out-link "$out_link"
+          archive=$(readlink -f "$out_link")
+          compose/acceptance/run.sh "$scenario" "docker-archive:$archive"
+        done
+      '';
+    };
 }

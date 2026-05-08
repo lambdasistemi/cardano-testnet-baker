@@ -89,24 +89,13 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Check Docker
         run: docker version && docker compose version
-      - name: Install acceptance dependencies
+      - name: Build seed-image-acceptance wrapper
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y jq
-      - name: Bake examples
-        run: |
-          set -euo pipefail
-          nix --quiet run . -- bake \
-            --scenario examples/scenarios/local-fast.json \
-            --out tmp/bakes/local-fast
-          nix --quiet run . -- bake \
-            --scenario examples/scenarios/normal.json \
-            --out tmp/bakes/normal
-      - name: Run local-fast compose acceptance
-        run: compose/acceptance/run.sh local-fast tmp/bakes/local-fast
-      - name: Run normal compose acceptance
-        run: compose/acceptance/run.sh normal tmp/bakes/normal
+          nix --quiet build .#checks.x86_64-linux.seed-image-acceptance \
+            --out-link result-seed-image-acceptance
+      - name: Run seed-image acceptance for every committed scenario
+        run: ./result-seed-image-acceptance/bin/seed-image-acceptance
 
   unit-tests:
     name: Unit tests
