@@ -135,3 +135,43 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Run HLint
         run: nix --quiet develop -c just hlint
+
+  seed-image-publish:
+    name: Publish seed images
+    needs: [build-gate, compose-acceptance]
+    runs-on: nixos
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Authenticate skopeo against ghcr.io
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          auth_dir="$HOME/.docker"
+          mkdir -p "$auth_dir"
+          token_b64=$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 -w 0)
+          cat > "$auth_dir/config.json" <<JSON
+          {
+            "auths": {
+              "ghcr.io": { "auth": "$token_b64" }
+            }
+          }
+          JSON
+          chmod 600 "$auth_dir/config.json"
+          echo "SKOPEO_AUTH_FILE=$auth_dir/config.json" >> "$GITHUB_ENV"
+      - name: Publish seed images
+        env:
+          BAKER_COMMIT_SHA7: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # `github.sha` is full 40-hex; the publish app demands 7-hex.
+          BAKER_COMMIT_SHA7=$(echo "$BAKER_COMMIT_SHA7" | cut -c1-7)
+          export BAKER_COMMIT_SHA7
+          nix --quiet run .#publishSeedImages
