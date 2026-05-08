@@ -103,6 +103,27 @@ let
     echo "  layer.tar sha256 (B) = $layer_sha_b"
     if [ "$layer_sha_a" != "$layer_sha_b" ]; then
       echo "FAIL: ${pair.scenarioName}: layer.tar bytes differ between two independent builds (genuine determinism bug)"
+      echo "Diagnostic — extracting both layer.tars and listing per-file sha256 mismatches:"
+      mkdir -p "$dir_a/extracted" "$dir_b/extracted"
+      tar -xf "$dir_a/$layer_a" -C "$dir_a/extracted"
+      tar -xf "$dir_b/$layer_b" -C "$dir_b/extracted"
+      ( cd "$dir_a/extracted" && find . -type f -printf '%P\n' | sort ) > "$dir_a/files.txt"
+      ( cd "$dir_b/extracted" && find . -type f -printf '%P\n' | sort ) > "$dir_b/files.txt"
+      if ! diff -q "$dir_a/files.txt" "$dir_b/files.txt" > /dev/null; then
+        echo "  file-set differs between A and B:"
+        diff -u "$dir_a/files.txt" "$dir_b/files.txt" || true
+      fi
+      echo "  per-file sha256 differences:"
+      while IFS= read -r f; do
+        sha_fa=$(sha256sum "$dir_a/extracted/$f" | awk '{ print $1 }')
+        sha_fb=
+        if [ -f "$dir_b/extracted/$f" ]; then
+          sha_fb=$(sha256sum "$dir_b/extracted/$f" | awk '{ print $1 }')
+        fi
+        if [ "$sha_fa" != "$sha_fb" ]; then
+          printf '    %s\n      A=%s\n      B=%s\n' "$f" "$sha_fa" "''${sha_fb:-MISSING}"
+        fi
+      done < "$dir_a/files.txt"
       exit 1
     fi
     echo "  layer.tar byte-identical — seed payload is deterministic"
