@@ -225,10 +225,11 @@ tag in the registry.
   synthesis. The host-dependent wall-clock observation block is **not**
   part of the image; consumers requiring producer-side timing must read
   the unpackaged bake output from a CI run.
-- **FR-013**: V1 MUST NOT add image signing. A follow-up issue MUST be
-  filed to introduce cosign keyless signing (Sigstore Fulcio/Rekor via the
-  GitHub Actions OIDC token) once basic publishing is proven, per the
-  constitution's "smallest provable step" principle.
+- **FR-013**: V1 MUST NOT add image signing. The follow-up to introduce
+  cosign keyless signing (Sigstore Fulcio/Rekor via the GitHub Actions
+  OIDC token) is tracked under
+  [issue #14](https://github.com/lambdasistemi/cardano-testnet-baker/issues/14)
+  per the constitution's "smallest provable step" principle.
 - **FR-014**: All published seed images MUST be retained indefinitely. No
   active pruning is configured. Per-commit secondary tags
   (`<scenario>-sha-<bakerCommitSha7>`) and content-derived primary tags
