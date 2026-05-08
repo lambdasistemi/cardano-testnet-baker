@@ -101,6 +101,15 @@
             scenarioFiles
             ;
         };
+
+        seedPublish = import ./nix/seed-publish.nix {
+          inherit
+            pkgs
+            scenariosDir
+            scenarioFiles
+            seedImage
+            ;
+        };
       in
       {
         packages = flakePkgs.packages // seedImagePackages // {
@@ -121,6 +130,10 @@
           db-synthesizer = {
             type = "app";
             program = "${iogTools.db-synthesizer}/bin/db-synthesizer";
+          };
+          publishSeedImages = {
+            type = "app";
+            program = "${seedPublish.publishSeedImages}/bin/publishSeedImages";
           };
         };
       }

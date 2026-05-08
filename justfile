@@ -133,6 +133,18 @@ acceptance-normal out="tmp/bakes/normal":
     fi
     compose/acceptance/run.sh normal "{{ out }}"
 
+# Push seed images for every committed scenario to GHCR.
+# Wraps `nix run .#publishSeedImages`. Requires
+# `BAKER_COMMIT_SHA7` (7-hex commit short SHA) in the environment;
+# CI's seed-image-publish job exports it from
+# `git rev-parse --short=7 HEAD`.
+publish-seed-images *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${BAKER_COMMIT_SHA7:=$(git rev-parse --short=7 HEAD)}"
+    export BAKER_COMMIT_SHA7
+    nix run .#publishSeedImages -- {{ ARGS }}
+
 # Local mirror of the CI pipeline.
 CI:
     #!/usr/bin/env bash
