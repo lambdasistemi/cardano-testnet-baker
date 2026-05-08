@@ -58,6 +58,7 @@ build-gate:
         .#checks.x86_64-linux.haddock \
         .#checks.x86_64-linux.scenario-schema \
         .#checks.x86_64-linux.example-bake-determinism \
+        .#checks.x86_64-linux.synthesis-report-shape \
         .#devShells.x86_64-linux.default.inputDerivation
 
 # Validate committed scenario examples against the published schema.
@@ -86,6 +87,16 @@ synthesize-local-fast out="tmp/synthesis/local-fast":
     nix run . -- bake \
         --scenario examples/scenarios/local-fast.json \
         --out "{{ out }}"
+
+# Run the realistic normal synthesis measurement path.
+measure-normal out="tmp/synthesis/normal":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/normal.json \
+        --out "{{ out }}"
+    jq . "{{ out }}/synthesis-report.json"
 
 # Bake both committed scenarios into scratch output directories.
 bake-examples out="tmp/bakes":
