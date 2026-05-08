@@ -69,6 +69,7 @@ library
     , optparse-applicative  >=0.19 && <0.20
     , process               >=1.6 && <1.7
     , text                  >=2.1 && <2.2
+    , time                  >=1.12 && <1.15
     , unix                  >=2.8 && <2.9
 
 executable cardano-testnet-baker

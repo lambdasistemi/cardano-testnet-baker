@@ -170,6 +170,11 @@ spec = describe "bake output layout" $ do
             doesPathExist
                 (outputDir </> "chain-db/immutable/fake.chunk")
                 `shouldReturn` True
+            doesPathExist (outputDir </> "synthesis-report.json")
+                `shouldReturn` True
+            report <- LBS.readFile (outputDir </> "synthesis-report.json")
+            report `shouldSatisfy` containsBytes "\"chainDb\""
+            report `shouldSatisfy` containsBytes "\"fileCount\":1"
             initialFunds <-
                 readShelleyInitialFundAmounts $
                     outputDir </> "genesis/shelley-genesis.json"
