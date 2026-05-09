@@ -202,6 +202,18 @@ tag in the registry.
   [contracts/publish-pipeline.md §"Determinism check"](./contracts/publish-pipeline.md)
   for the full rationale and the exact properties the gate
   enforces.
+
+  **Known limitation (tracked under
+  [issue #15](https://github.com/lambdasistemi/cardano-testnet-baker/issues/15)):**
+  the in-gate determinism check currently runs against
+  `local-fast` only. The `normal` scenario triggers an upstream
+  `db-synthesizer` non-determinism (different volatile-block count
+  per run at 300,000 slots) that lives outside Feature 003's
+  surface; widening the gate to `normal` is a one-line edit in
+  `nix/checks.nix` once the upstream issue is resolved. `normal`
+  is still published every push — the seed payload is functionally
+  usable as a node warmup — but its byte-identical-rebuild
+  property is not asserted by CI yet.
 - **FR-007**: Before any artifact is published for a scenario, the existing
   Docker Compose acceptance harness MUST succeed against the seed extracted
   from the artifact about to be published. Publishing MUST NOT proceed if
@@ -278,6 +290,11 @@ tag in the registry.
   manifest digest — that's the production-side property the spec
   promises consumers — but it is established by the determinism of
   the build closure, not directly compared by the in-gate check.
+  Per the FR-006 known limitation, the gate currently runs against
+  `local-fast` only; `normal` is shipped without the byte-identical
+  assertion until
+  [issue #15](https://github.com/lambdasistemi/cardano-testnet-baker/issues/15)
+  is resolved.
 - **SC-003**: A reviewer can reproduce any published artifact from source
   offline — no registry pulls, no CI runner trust — and the manifest digest
   matches the published one. Verified by the documented offline reproduction

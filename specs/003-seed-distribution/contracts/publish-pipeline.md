@@ -98,6 +98,22 @@ The check is wired into the `Build Gate` job alongside the
 existing checks (so any layer-payload or meaningful-config
 divergence fails the gate, not the later publish job).
 
+### Known limitation
+
+The check currently runs against `local-fast` only. The `normal`
+scenario triggers an upstream `db-synthesizer` non-determinism
+(the synthesizer emits a different number of `chain-db/volatile/`
+blocks between independent runs of the 300,000-slot input);
+that drift lives outside Feature 003's surface and is tracked
+under
+<https://github.com/lambdasistemi/cardano-testnet-baker/issues/15>.
+Widening the gate to `normal` is a one-line change in
+`nix/checks.nix` (`determinismScenarioFiles = builtins.filter
+... scenarioFiles` → `= scenarioFiles`) once the upstream issue
+is resolved. The `normal` seed is still published every push;
+its byte-identical-rebuild property is just not asserted by CI
+yet.
+
 ## Failure modes
 
 | Failure | Effect on the run |
