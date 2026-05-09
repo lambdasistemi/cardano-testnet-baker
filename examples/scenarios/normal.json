@@ -62,7 +62,7 @@
   ],
   "synthesis": {
     "enabled": true,
-    "slotCount": 300000,
+    "slotCount": 100000,
     "profile": "normal-realistic"
   }
 }
