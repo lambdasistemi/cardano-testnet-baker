@@ -91,9 +91,13 @@ jobs:
             --scenario examples/scenarios/normal.json \
             --out tmp/bakes/normal
       - name: Run local-fast compose acceptance
-        run: nix develop --quiet -c compose/acceptance/run.sh local-fast tmp/bakes/local-fast
+        run: |
+          export PATH="/run/current-system/sw/bin:$PATH"
+          nix develop --quiet -c compose/acceptance/run.sh local-fast tmp/bakes/local-fast
       - name: Run normal compose acceptance
-        run: nix develop --quiet -c compose/acceptance/run.sh normal tmp/bakes/normal
+        run: |
+          export PATH="/run/current-system/sw/bin:$PATH"
+          nix develop --quiet -c compose/acceptance/run.sh normal tmp/bakes/normal
 
   unit-tests:
     name: Unit tests
