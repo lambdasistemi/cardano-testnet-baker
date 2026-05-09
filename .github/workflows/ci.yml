@@ -73,26 +73,14 @@ jobs:
   compose-acceptance:
     name: Compose acceptance
     needs: build-gate
-    runs-on: ubuntu-latest
+    runs-on: nixos
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
-      - uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            accept-flake-config = true
       - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-      - name: Check Docker
-        run: docker version && docker compose version
-      - name: Install acceptance dependencies
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y jq
       - name: Bake examples
         run: |
           set -euo pipefail
@@ -103,9 +91,9 @@ jobs:
             --scenario examples/scenarios/normal.json \
             --out tmp/bakes/normal
       - name: Run local-fast compose acceptance
-        run: compose/acceptance/run.sh local-fast tmp/bakes/local-fast
+        run: nix develop --quiet -c compose/acceptance/run.sh local-fast tmp/bakes/local-fast
       - name: Run normal compose acceptance
-        run: compose/acceptance/run.sh normal tmp/bakes/normal
+        run: nix develop --quiet -c compose/acceptance/run.sh normal tmp/bakes/normal
 
   unit-tests:
     name: Unit tests
