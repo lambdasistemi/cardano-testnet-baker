@@ -344,6 +344,23 @@ Slices are bisect-safe because each compiles and runs the existing CI
 gate after merging onto its predecessor. Slice 3 specifically depends
 on slice 2 to be green; reviewer must enforce this ordering.
 
+**Scope reduction at finalization (2026-05-09).** PR #16 ships the
+functional MVP as Slices 1 + 2 only — the reproducer
+(`just reproduce-15-drift`) and the producer fix (cap
+`examples/scenarios/normal.json:slotCount` at 100000, below the
+volatile-DB GC drift floor identified in research §R-003). Slices
+3, 4, and 5 were each found, mid-implementation, to depend on text
+or derivations introduced by PR #12 (`003-seed-distribution`, still
+OPEN): Slice 3 widens a `seed-image-determinism` gate that does not
+exist on this branch's base; Slice 4's three `narrowing-rewrite.md`
+sources live in `specs/003-seed-distribution/...`; Slice 5's
+recipe builds the same `seed-image-determinism` derivation three
+times. They are deferred to follow-up issues #18 (Slice 3), #19
+(Slice 4), and #20 (Slice 5), each blocked on PR #12 landing.
+The bug closing #15 is functionally fixed by Slices 1 + 2 alone —
+the producer is deterministic on the `normal` scenario at
+`slotCount = 100000`, falsifiable locally via Slice 1's oracle.
+
 ## Post-Design Constitution Check
 
 | Principle | Status | Design Evidence |

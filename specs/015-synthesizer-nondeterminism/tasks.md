@@ -46,6 +46,38 @@ treat the gate as informational.
 
 ---
 
+## Scope reduction at finalization (2026-05-09)
+
+PR #16 ships the **functional MVP** as Slices 1+2 only. Slices 3,
+4, and 5 were each found, mid-implementation, to depend on text
+or derivations introduced by PR #12 (`003-seed-distribution`,
+still OPEN) in ways the original plan/tasks did not surface:
+
+- **Slice 3 (T015-T016) — DEFERRED-TO-FOLLOW-UP #18.**
+  The `seed-image-determinism` derivation it widens, and the
+  narrowing comment block it deletes, both live on PR #12
+  (commits `d16b526`, `b4672c3`, `a9dd69a`). Absent on this
+  branch's base.
+- **Slice 4 (T017-T020) — DEFERRED-TO-FOLLOW-UP #19.**
+  Already correctly marked BLOCKED-ON-PR#12 in Phase 6 below.
+  Sources 1, 2, 3 of `contracts/narrowing-rewrite.md` target
+  text in `specs/003-seed-distribution/...` that PR #12 owns.
+- **Slice 5 (T021-T022) — DEFERRED-TO-FOLLOW-UP #20.**
+  The `determinism-normal` recipe per
+  `contracts/determinism-harness.md` Surface 3 builds
+  `.#checks.x86_64-linux.seed-image-determinism` three times.
+  That attribute does not exist on this branch's flake; it is
+  owned by PR #12. Originally marked PARALLEL-SAFE with slices
+  2-4 (which is correct on the bisect-ordering axis), but the
+  recipe calls a PR #12-owned derivation, so it is not runnable
+  on this branch.
+
+Slice content below is preserved as a record of intent for the
+follow-up tickets. The slice headers (Phase 5, 6, 7) carry
+DEFERRED-TO-FOLLOW-UP markers pointing at the issues above.
+
+---
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Make the new feature artifacts navigable from
@@ -246,7 +278,7 @@ this baker SHA. The gate is still narrowed to `local-fast` in
 
 ---
 
-## Phase 5: Slice 3 — Widen `seed-image-determinism` to full scope (Priority: P1)
+## Phase 5: Slice 3 — Widen `seed-image-determinism` to full scope (Priority: P1) **DEFERRED-TO-FOLLOW-UP #18**
 
 **Goal**: Restore the determinism gate's in-scope scenario list
 to the full `examples/scenarios/*.json` set. Owner of the exact
@@ -303,7 +335,7 @@ SC-001 three-runs threshold.
 
 ---
 
-## Phase 6: Slice 4 — Rewrite the PR #12 narrowing (Priority: P3) **BLOCKED-ON-PR#12**
+## Phase 6: Slice 4 — Rewrite the PR #12 narrowing (Priority: P3) **BLOCKED-ON-PR#12** **DEFERRED-TO-FOLLOW-UP #19**
 
 **Goal**: Remove or rewrite the four narrowing fragments enumerated
 in `contracts/narrowing-rewrite.md` (Sources 1, 2, 3 in
@@ -363,7 +395,7 @@ rewritten") is met.
 
 ---
 
-## Phase 7: Slice 5 — Local 3-runs harness (Priority: P2) **PARALLEL-SAFE**
+## Phase 7: Slice 5 — Local 3-runs harness (Priority: P2) **PARALLEL-SAFE** **DEFERRED-TO-FOLLOW-UP #20**
 
 **Goal**: Add `just determinism-normal` per
 `contracts/determinism-harness.md` Surface 3. Owner of the recipe
