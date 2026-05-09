@@ -141,6 +141,16 @@ cp -R "$baked_output_dir/." "$runtime_dir/"
 cp "$script_dir/topology/topology.json" "$runtime_dir/topology.json"
 "$script_dir/patch-system-start.sh" "$runtime_dir"
 
+# cardano-node refuses to start with `OtherPermissionsExist` on
+# private-key files, so enforce `0600` on every `*.skey` in the
+# runtime tree. The seed-image distribution contract
+# (`specs/003-seed-distribution/contracts/seed-image-layout.md`
+# §"File-mode contract") explicitly says consumers must `chmod
+# 0600` after `COPY --from=`; this is the acceptance harness
+# acting as that consumer. Dir-mode inputs already have the
+# baker's natural `0600` here, so the chmod is idempotent.
+find "$runtime_dir" -type f -name '*.skey' -exec chmod 0600 {} +
+
 export ACCEPTANCE_RUNTIME_DIR=$runtime_dir
 export CARDANO_NODE_IMAGE=$node_image
 export COMPOSE_PROJECT_NAME=$project_name
