@@ -42,6 +42,7 @@ jobs:
           .#unit-tests
           .#checks.x86_64-linux.cabal-check
           .#checks.x86_64-linux.haddock
+          .#checks.x86_64-linux.seed-image-determinism
           .#devShells.x86_64-linux.default.inputDerivation
 
   scenario-schema:
@@ -88,24 +89,13 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Check Docker
         run: docker version && docker compose version
-      - name: Install acceptance dependencies
+      - name: Build seed-image-acceptance wrapper
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y jq
-      - name: Bake examples
-        run: |
-          set -euo pipefail
-          nix --quiet run . -- bake \
-            --scenario examples/scenarios/local-fast.json \
-            --out tmp/bakes/local-fast
-          nix --quiet run . -- bake \
-            --scenario examples/scenarios/normal.json \
-            --out tmp/bakes/normal
-      - name: Run local-fast compose acceptance
-        run: compose/acceptance/run.sh local-fast tmp/bakes/local-fast
-      - name: Run normal compose acceptance
-        run: compose/acceptance/run.sh normal tmp/bakes/normal
+          nix --quiet build .#checks.x86_64-linux.seed-image-acceptance \
+            --out-link result-seed-image-acceptance
+      - name: Run seed-image acceptance for every committed scenario
+        run: ./result-seed-image-acceptance/bin/seed-image-acceptance
 
   unit-tests:
     name: Unit tests
@@ -145,3 +135,58 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Run HLint
         run: nix --quiet develop -c just hlint
+
+  seed-image-publish:
+    name: Publish seed images
+    needs: [build-gate, compose-acceptance]
+    runs-on: nixos
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Configure skopeo (auth + trust policy)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          auth_dir="$HOME/.docker"
+          mkdir -p "$auth_dir"
+          token_b64=$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 -w 0)
+          cat > "$auth_dir/config.json" <<JSON
+          {
+            "auths": {
+              "ghcr.io": { "auth": "$token_b64" }
+            }
+          }
+          JSON
+          chmod 600 "$auth_dir/config.json"
+          echo "SKOPEO_AUTH_FILE=$auth_dir/config.json" >> "$GITHUB_ENV"
+
+          # skopeo refuses to operate without a trust policy. The
+          # nixos runner has no /etc/containers/policy.json and no
+          # per-user one either; write a permissive default so
+          # `skopeo copy` proceeds. (Image signing — a stricter
+          # policy that would actually verify Sigstore certs — is
+          # tracked under issue #14.)
+          policy_dir="$HOME/.config/containers"
+          mkdir -p "$policy_dir"
+          cat > "$policy_dir/policy.json" <<'JSON'
+          {
+            "default": [{"type": "insecureAcceptAnything"}]
+          }
+          JSON
+      - name: Publish seed images
+        env:
+          BAKER_COMMIT_SHA7: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # `github.sha` is full 40-hex; the publish app demands 7-hex.
+          BAKER_COMMIT_SHA7=$(echo "$BAKER_COMMIT_SHA7" | cut -c1-7)
+          export BAKER_COMMIT_SHA7
+          nix --quiet run .#publishSeedImages
