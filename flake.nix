@@ -17,11 +17,15 @@
     nixpkgs.follows = "haskellNix/nixpkgs-unstable";
     flake-utils.url = "github:hamishmack/flake-utils/hkm/nested-hydraJobs";
     iohkNix = {
-      # Pinned to the same crypto-overlay revision used by
-      # amaru-bootstrap; newer main revisions currently fail the libblst
-      # version check during shell construction.
-      url = "github:input-output-hk/iohk-nix/fdfc53bc51c684fe086117de651f36572b26655a";
+      url = "github:input-output-hk/iohk-nix/9de00113c11ba8cac908a63acf34b193cda7475b";
       inputs.nixpkgs.follows = "nixpkgs";
+      # Override transitive `blst` input to fetch via git protocol instead
+      # of GitHub's tarball API. GitHub serves different tarball narHashes
+      # for the same commit to different clients/over time, which causes
+      # spurious `mismatch in field 'narHash'` errors on CI. Git protocol
+      # narHashes are derived from the source tree and are stable.
+      inputs.blst.url = "git+https://github.com/supranational/blst?ref=v0.3.15&rev=6d960cd05d6fe2b5bc9ba161edf0c1a131b87c4c";
+      inputs.blst.flake = false;
     };
     CHaP = {
       url = "github:intersectmbo/cardano-haskell-packages?ref=repo";
