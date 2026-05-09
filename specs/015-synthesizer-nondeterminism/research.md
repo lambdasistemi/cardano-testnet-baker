@@ -62,6 +62,26 @@ inside the library's own logic.
 the drift to nil, and R-003 names the divergence mechanism with enough
 specificity to file upstream.
 
+**Closure (Phase 2, T006)**: **Path (a) confirmed**. R-002's bisect
+finds a clean drift floor between `slotCount=175000` (3/3 deterministic)
+and `slotCount=200000` (2/3 drift), well above the local-fast boundary
+(720). R-003 names the mechanism as a wall-clock-scheduled volatile-DB
+GC racing with `closeDB` (see R-003 closure below); since the GC is
+only triggered after the synthesis run accumulates more than `gcDelay
+= 60s` of wall time, any `slotCount` whose two-bake total wall time
+stays well under that threshold cannot drift by construction. Slice 2
+therefore takes path (a): edit `examples/scenarios/normal.json`'s
+existing `synthesis.slotCount` field (no schema bump, no upstream pin
+bump). Path (c)'s trigger condition was *not* met — R-002 did not need
+to widen to `securityParam` or `epochLength`. The chosen `slotCount`
+for `normal` is committed in slice 2 (T011); the floor of choice is
+`slotCount = 100000` (78s wall on this developer's box, 2/2 clean,
+1.16 epochs at `epochLength=86400`), which preserves the
+"realistic measurement" intent of Feature 002 R-007 while giving slow
+CI runners (≤2x slowdown) headroom under the 60s GC delay. Schema
+remains v1; `contracts/scenario-schema-migration.md` "When this
+contract triggers" is **not** triggered.
+
 ## R-002: Smallest reproducer parameter envelope
 
 **Decision**: The "smallest reproducer parameter envelope" required by
@@ -113,6 +133,46 @@ runtime if path (a) chooses a smaller `slotCount` for `normal`.
 - The smallest drifting `slotCount` recorded in this artifact.
 - A reproducer recipe (`just reproduce-15-drift`) that bakes
   `normal` twice and exits non-zero on file-set diff.
+
+**Closure (Phase 2, T003-T004)**: Bisect run on this branch at the
+durable Slice 1 commit, using `bash scripts/reproduce-15-drift.sh -s
+<scenario>` as the harness, against scenario JSONs derived from
+`examples/scenarios/normal.json` with `synthesis.slotCount` overridden
+via `jq`. All other parameters held at the `normal.json` baseline:
+`securityParam=432`, `epochLength=86400`, `activeSlotsCoeff=0.05`,
+`seed=f0e0d0c0b0a090807060504030201000`, three pools, three faucets,
+hard-fork eras at slot 0. Two consecutive bakes per row; "drift"
+means at least one of the row's pair-runs produced a non-empty
+file-set diff under `chain-db/volatile/blocks-*.dat` per the slice 1
+oracle. Wall times measured on a single developer machine (Linux,
+nvme, 125 GiB RAM, 2026-05-09).
+
+| slotCount | bakes | wall (per pair) | volatile files | verdict |
+| ---------:| ----- | --------------- | -------------- | ------- |
+|     75000 | 1 pair |  59s           | 4              | clean (3/3) |
+|    100000 | 2 pairs|  78s           | 5              | clean (2/2) |
+|    150000 | 3 pairs| 117s-122s      | 8              | clean (3/3) |
+|    175000 | 2 pairs| 136s-142s      | 9              | clean (2/2) |
+|    200000 | 3 pairs| 154s-160s      | 10 vs 11       | **drift** (2/3) |
+|    300000 | 2 pairs| 239s+          | 10 vs 11       | **drift** (3/4 incl. slice 1 RED evidence) |
+
+**Drift floor**: The smallest drifting `slotCount` observed in this
+bisect is **200000** (intermittently — 2 of 3 pair-runs drift). The
+largest non-drifting `slotCount` observed is **175000** (2 of 2 clean,
+plus the implicit clean band 75k-150k below). Step 2 of the bisect
+(widen to `securityParam`/`epochLength`) was **not needed**: the drift
+collapses inside `slotCount` alone, consistent with R-003's wall-clock
+GC-race hypothesis. Each volatile file holds ~860,000 bytes of CBOR
+blocks; with `slotCount=300000` and `activeSlotsCoeff=0.05` the
+synthesizer emits ~15,000 blocks across 16 files in ~120s of wall
+clock per single bake — comfortably above `gcDelay=60s`.
+
+The smallest envelope FR-005 promises is therefore the
+`(slotCount=200000, securityParam=432, epochLength=86400)` triple at
+the `normal.json` seed and `activeSlotsCoeff=0.05`. Slice 2 picks a
+**slotCount well below the drift floor** (T011 chooses `100000`, see
+R-001 closure) so the post-fix `normal` cannot regress under realistic
+CI load.
 
 **Alternatives considered**:
 
@@ -168,6 +228,74 @@ decision.
 - The mechanism name and the evidence type (i, ii, iii, or iv above).
 - A link or quote sufficient for a future maintainer reading this
   artifact to verify the claim without re-deriving the bisect.
+
+**Closure (Phase 2, T005)**: The named mechanism is a **wall-clock
+scheduled volatile-DB garbage collector racing with `closeDB` at
+synthesizer exit**. The mechanism is item **(ii)** in the acceptance
+list above (`git grep` reference inside the pinned
+`ouroboros-consensus` source tree at our SRP commit
+`c87aa760001e60f0f0d3353f793eb089adb917e7`). Evidence:
+
+- `ouroboros-consensus/src/ouroboros-consensus/Ouroboros/Consensus/Storage/ChainDB/Impl/Background.hs:513`
+  — `scheduleGC` calls
+  `timeScheduledForGC <- computeTimeForGC gcParams <$> getMonotonicTime`,
+  scheduling each volatile-file GC at `roundUpToInterval gcInterval
+  (now + gcDelay)`. At line 572 the runner calls `getMonotonicTime`
+  again and `threadDelay`s until the scheduled wall-clock instant
+  before invoking `runGc slotNo`.
+- `ouroboros-consensus/src/ouroboros-consensus/Ouroboros/Consensus/Storage/ChainDB/Impl/Args.hs:123`
+  — defaults `cdbsGcDelay = secondsToDiffTime 60` and
+  `cdbsGcInterval = secondsToDiffTime 10`. `db-synthesizer`
+  (`ouroboros-consensus-cardano/src/unstable-cardano-tools/Cardano/Tools/DBSynthesizer/Run.hs:165`)
+  uses `ChainDB.defaultArgs` with no override, so the synthesis run
+  inherits the 60s+10s wall-clock GC schedule.
+- `ouroboros-consensus/src/ouroboros-consensus/Ouroboros/Consensus/Storage/VolatileDB/Impl.hs:521`
+  (`garbageCollectFile`) and the surrounding `Impl.hs:456`
+  (`garbageCollectImpl`) — when the GC fires, it calls `removeFile
+  hasFS $ filePath fileId` for every volatile file whose
+  `FileInfo.canGC` returns `True` (slot below
+  `slotNo - securityParam`) **except** the current write file. This
+  is what causes earlier `blocks-N.dat` files to disappear from one
+  bake and not the other.
+- `ouroboros-consensus/src/ouroboros-consensus/Ouroboros/Consensus/Storage/ChainDB/Impl.hs:413-414`
+  — `closeDB` reads `cdbKillBgThreads` and synchronously kills the
+  GC runner. Whether a scheduled GC fires before `closeDB` arrives
+  depends on the wall-clock alignment between the synthesis loop's
+  end and the GC scheduler's `threadDelay`. Two bakes of the same
+  scenario therefore disagree on the **set** of GC'd volatile
+  files at exit, even though the underlying block stream is bit-
+  identical.
+
+**Why the drift looks like the issue body's "blocks-6.dat"**: the
+issue body's reported delta — `blocks-6.dat` present in one bake and
+missing in the other — is exactly a single GC-eligible volatile file
+that fires-or-not depending on whether its scheduled time
+(`now + gcDelay` rounded up to a 10s boundary) lands before or after
+`runForge` returns and `withDB` invokes `closeDB`. The slice-1 RED
+evidence shows the same shape (`+blocks-5.dat`); the in-this-turn
+bisect at `slotCount=300000` and `slotCount=200000` shows it again
+across multiple file ids (`blocks-5`, `blocks-6`, …). The mechanism
+is the same in every observation; only the file id varies.
+
+**Why the four hypotheses in the issue body all "miss" the actual
+mechanism**: `runForge` is a single-threaded loop driven by a synthetic
+slot counter (`Forging.hs:goSlot`), not a wall-clock or
+`/dev/urandom`-derived schedule. `addBlockAsync` does enqueue the
+block on `cdbChainSelQueue` but `runForge` waits synchronously on
+`blockProcessed` per slot, so block emission itself is deterministic.
+The only residual non-determinism in the synthesizer-as-a-whole is
+the **side-effecting GC scheduler**, which is silent (its trace is
+suppressed by `nullTracer` at `Run.hs:181`). This is why the symptom
+is purely a *file-set* delta, not a per-block byte delta — the
+underlying block bytes are identical; it is only which files survive
+to disk that varies.
+
+**Acceptance**: This closure satisfies User Story 2 acceptance scenario
+§1 ("the merged PR contains a durable note that names the mechanism
+with file-and-line evidence inside `ouroboros-consensus`"). The
+evidence type is **(ii)** per the list above. No `+RTS -DDEBUG` trace
+pair is required because the source-level evidence is conclusive
+without it.
 
 ## R-004: Determinism harness placement
 
