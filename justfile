@@ -111,6 +111,14 @@ bake-examples out="tmp/bakes":
         --scenario examples/scenarios/normal.json \
         --out "{{ out }}/normal"
 
+# Reproduce issue #15: bake examples/scenarios/normal.json twice and
+# diff the chain-db/volatile/blocks-*.dat file set. RED on the pre-fix
+# baker SHA; GREEN once slice 2 of feature 015 lands.
+reproduce-15-drift:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scripts/reproduce-15-drift.sh
+
 # Run compose acceptance for the local-fast example.
 acceptance-local-fast out="tmp/bakes/local-fast":
     #!/usr/bin/env bash
