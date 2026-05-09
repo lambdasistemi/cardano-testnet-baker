@@ -93,10 +93,12 @@ jobs:
       - name: Run local-fast compose acceptance
         run: |
           export PATH="/run/current-system/sw/bin:$PATH"
+          export ACCEPTANCE_TMP_ROOT="$PWD/tmp/acceptance/local-fast"
           nix develop --quiet -c compose/acceptance/run.sh local-fast tmp/bakes/local-fast
       - name: Run normal compose acceptance
         run: |
           export PATH="/run/current-system/sw/bin:$PATH"
+          export ACCEPTANCE_TMP_ROOT="$PWD/tmp/acceptance/normal"
           nix develop --quiet -c compose/acceptance/run.sh normal tmp/bakes/normal
 
   unit-tests:
