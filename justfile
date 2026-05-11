@@ -132,6 +132,50 @@ acceptance-normal out="tmp/bakes/normal":
     fi
     compose/acceptance/run.sh normal "{{ out }}"
 
+# Bake the antithesis-master scenario.
+bake-antithesis-master out="tmp/bakes/antithesis-master":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/antithesis-master.json \
+        --out "{{ out }}"
+
+# Bake the antithesis-fast scenario.
+bake-antithesis-fast out="tmp/bakes/antithesis-fast":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{ out }}"
+    nix run . -- bake \
+        --scenario examples/scenarios/antithesis-fast.json \
+        --out "{{ out }}"
+
+# Multi-pool compose acceptance mirroring the antithesis testnet shape
+# against the master scenario.  Success bar: all 3 pools log
+# `Opened db with`, proving the per-pool layout + keys are wired the
+# way the antithesis configurator emits them.
+acceptance-antithesis-master out="tmp/bakes/antithesis-master":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d "{{ out }}" ]]; then
+        just bake-antithesis-master "{{ out }}"
+    fi
+    compose/acceptance/multi/run.sh antithesis-master "{{ out }}" chaindb-opened
+
+# Multi-pool compose acceptance using fast scenario parameters
+# (epochLength 120, k 1) so blocks are produced in seconds.  Success
+# bar: each pool logs an `AddedToCurrentChain` event for a non-genesis
+# block AND the chain tip hash matches across all three pools, proving
+# baker's keys + the adapter's ring topology let the cluster reach
+# multi-pool consensus.
+acceptance-antithesis-fast out="tmp/bakes/antithesis-fast":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d "{{ out }}" ]]; then
+        just bake-antithesis-fast "{{ out }}"
+    fi
+    compose/acceptance/multi/run.sh antithesis-fast "{{ out }}" block-agreement
+
 # Local mirror of the CI pipeline.
 CI:
     #!/usr/bin/env bash
@@ -144,3 +188,4 @@ CI:
     rm -rf tmp/ci-acceptance
     just synthesize-local-fast tmp/ci-acceptance/bakes/local-fast
     just acceptance-local-fast tmp/ci-acceptance/bakes/local-fast
+    just acceptance-antithesis-fast tmp/ci-acceptance/bakes/antithesis-fast
