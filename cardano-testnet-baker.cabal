@@ -45,6 +45,10 @@ library
     Cardano.Testnet.Baker.Bake
     Cardano.Testnet.Baker.CLI
     Cardano.Testnet.Baker.Determinism
+    Cardano.Testnet.Baker.Dressing.Layout
+    Cardano.Testnet.Baker.Dressing.Patch
+    Cardano.Testnet.Baker.Dressing.Runtime
+    Cardano.Testnet.Baker.Dressing.Topology
     Cardano.Testnet.Baker.Genesis
     Cardano.Testnet.Baker.Keys
     Cardano.Testnet.Baker.Metadata
@@ -93,6 +97,10 @@ test-suite unit-tests
     Cardano.Testnet.Baker.CLISpec
     Cardano.Testnet.Baker.ComposeAcceptanceSpec
     Cardano.Testnet.Baker.DeterminismSpec
+    Cardano.Testnet.Baker.Dressing.LayoutSpec
+    Cardano.Testnet.Baker.Dressing.PatchSpec
+    Cardano.Testnet.Baker.Dressing.RuntimeSpec
+    Cardano.Testnet.Baker.Dressing.TopologySpec
     Cardano.Testnet.Baker.KeysSpec
     Cardano.Testnet.Baker.MetadataSpec
     Cardano.Testnet.Baker.ScenarioSpec
