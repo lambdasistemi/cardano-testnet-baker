@@ -90,6 +90,12 @@ jobs:
           nix --quiet run . -- bake \
             --scenario examples/scenarios/normal.json \
             --out tmp/bakes/normal
+          nix --quiet run . -- bake \
+            --scenario examples/scenarios/antithesis-master.json \
+            --out tmp/bakes/antithesis-master
+          nix --quiet run . -- bake \
+            --scenario examples/scenarios/antithesis-fast.json \
+            --out tmp/bakes/antithesis-fast
       - name: Run local-fast compose acceptance
         run: |
           export PATH="/run/current-system/sw/bin:$PATH"
@@ -100,6 +106,18 @@ jobs:
           export PATH="/run/current-system/sw/bin:$PATH"
           export ACCEPTANCE_TMP_ROOT="$PWD/tmp/acceptance/normal"
           nix develop --quiet -c compose/acceptance/run.sh normal tmp/bakes/normal
+      - name: Run antithesis-master configurator-substitution acceptance
+        run: |
+          export PATH="/run/current-system/sw/bin:$PATH"
+          export ACCEPTANCE_TMP_ROOT="$PWD/tmp/acceptance/antithesis-master"
+          nix develop --quiet -c \
+            compose/acceptance/multi/run.sh antithesis-master tmp/bakes/antithesis-master chaindb-opened
+      - name: Run antithesis-fast configurator-substitution acceptance
+        run: |
+          export PATH="/run/current-system/sw/bin:$PATH"
+          export ACCEPTANCE_TMP_ROOT="$PWD/tmp/acceptance/antithesis-fast"
+          nix develop --quiet -c \
+            compose/acceptance/multi/run.sh antithesis-fast tmp/bakes/antithesis-fast block-agreement
 
   unit-tests:
     name: Unit tests
