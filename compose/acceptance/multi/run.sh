@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Multi-pool compose acceptance: brings up 3 cardano-node containers
-# laid out by adapt.sh and waits for a success bar across all of them.
+# laid out by the Haskell `dress` subcommand and waits for a success
+# bar across all of them.
 #
 # Modes:
 #   chaindb-opened    — wait until each pool logs `Opened db with` (or
@@ -55,7 +56,14 @@ esac
 poll_seconds=${ACCEPTANCE_POLL_SECONDS:-2}
 
 mkdir -p "$runtime_dir" "$log_dir"
-"$script_dir/adapt.sh" "$baked_output_dir" "$runtime_dir"
+
+repo_root=$(cd -- "$script_dir/../../.." && pwd -P)
+dress_system_start=${ACCEPTANCE_START_TIME:-$(( ( $(date -u +%s) / 120 ) * 120 ))}
+nix --quiet run "$repo_root" -- dress \
+    --baked "$baked_output_dir" \
+    --profile antithesis-configurator \
+    --out "$runtime_dir" \
+    --system-start "$dress_system_start"
 
 export ACCEPTANCE_RUNTIME_DIR=$runtime_dir
 export COMPOSE_PROJECT_NAME=$project_name
