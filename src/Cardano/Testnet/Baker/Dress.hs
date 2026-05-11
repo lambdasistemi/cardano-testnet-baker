@@ -56,6 +56,8 @@ import System.FilePath
     ( takeDirectory
     , (</>)
     )
+import System.Posix.Files (setFileMode)
+import System.Posix.Types (FileMode)
 
 -- | Inputs for the @dress@ subcommand.
 data DressOptions = DressOptions
@@ -243,10 +245,19 @@ writeJsonFile path v = do
     createDirectoryIfMissing True (takeDirectory path)
     LBS.writeFile path (Aeson.encode v <> "\n")
 
+{- | Permissions cardano-node tolerates for KES / VRF / opcert files.
+The bash adapter preserved baker output permissions (0o600) via
+@cp@; we set them explicitly so that 'cardano-node' does not
+raise @OtherPermissionsExist@ on the dressed runtime tree.
+-}
+keyFileMode :: FileMode
+keyFileMode = 0o600
+
 writeBytesFile :: FilePath -> ByteString -> IO ()
 writeBytesFile path bs = do
     createDirectoryIfMissing True (takeDirectory path)
     BS.writeFile path bs
+    setFileMode path keyFileMode
 
 -- We avoid pulling in Control.Monad.Extra for a single filterM.
 filterM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
