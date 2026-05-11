@@ -22,6 +22,10 @@ import Cardano.Testnet.Baker.Bake
     , BakeRequest (..)
     , bakeScenarioWithSynthesisRunner
     )
+import Cardano.Testnet.Baker.Dress
+    ( DressOptions (..)
+    , runDress
+    )
 import Cardano.Testnet.Baker.Scenario (decodeScenarioBytes)
 import Cardano.Testnet.Baker.Synthesis
     ( SynthesisError (..)
@@ -34,11 +38,13 @@ import Cardano.Testnet.Baker.Validation
 import Cardano.Testnet.Baker.Version (libraryVersion)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
+import Data.Time.Clock.POSIX (POSIXTime)
 import Options.Applicative
     ( Parser
     , ParserInfo
     , ParserResult (..)
     , argument
+    , auto
     , command
     , defaultPrefs
     , execParser
@@ -52,6 +58,8 @@ import Options.Applicative
     , infoOption
     , long
     , metavar
+    , option
+    , optional
     , progDesc
     , renderFailure
     , str
@@ -64,6 +72,7 @@ import System.Exit (die)
 data Command
     = CommandScenario ScenarioCommand
     | CommandBake BakeOptions
+    | CommandDress DressOptions
     deriving (Eq, Show)
 
 -- | Commands under @scenario@.
@@ -121,6 +130,14 @@ commandParser =
                     (CommandBake <$> bakeOptionsParser)
                     (progDesc "Bake deterministic artifacts.")
                 )
+            <> command
+                "dress"
+                ( info
+                    (CommandDress <$> dressOptionsParser)
+                    ( progDesc
+                        "Dress a baker output for a consumer profile."
+                    )
+                )
         )
 
 scenarioCommandParser :: Parser ScenarioCommand
@@ -152,6 +169,38 @@ bakeOptionsParser =
                 <> help "Empty output directory for baked artifacts."
             )
 
+dressOptionsParser :: Parser DressOptions
+dressOptionsParser =
+    DressOptions
+        <$> strOption
+            ( long "baked"
+                <> metavar "DIR"
+                <> help "Baker output directory to dress."
+            )
+        <*> (Text.pack <$> profileFlag)
+        <*> strOption
+            ( long "out"
+                <> metavar "DIR"
+                <> help "Runtime output directory."
+            )
+        <*> optional systemStartOption
+  where
+    profileFlag =
+        strOption
+            ( long "profile"
+                <> metavar "NAME"
+                <> help "Named consumer profile (e.g. antithesis-configurator)."
+            )
+    systemStartOption :: Parser POSIXTime
+    systemStartOption =
+        (fromIntegral :: Int -> POSIXTime)
+            <$> option
+                auto
+                ( long "system-start"
+                    <> metavar "UNIX"
+                    <> help "Pin systemStart to this UNIX seconds value."
+                )
+
 versionOption :: Parser (a -> a)
 versionOption =
     infoOption
@@ -168,6 +217,11 @@ runCommand = \case
         runBakeOptions options >>= \case
             Right (BakeOutput outputDir) ->
                 putStrLn ("baked artifacts: " <> outputDir)
+            Left err -> die err
+    CommandDress options ->
+        runDress options >>= \case
+            Right () ->
+                putStrLn ("dressed runtime: " <> dressOutDir options)
             Left err -> die err
 
 -- | Decode, validate, and bake a scenario from CLI options.
