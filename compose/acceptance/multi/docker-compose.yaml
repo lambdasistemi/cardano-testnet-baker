@@ -1,0 +1,78 @@
+x-cardano-node: &cardano-node
+  image: ${CARDANO_NODE_IMAGE:-ghcr.io/intersectmbo/cardano-node@sha256:3275d357053d21f3220f74b0854fd584e1fe322dfa1bbb78effd760c3191d14c}
+  stop_signal: SIGINT
+  restart: "no"
+
+services:
+  p1:
+    <<: *cardano-node
+    container_name: ${COMPOSE_PROJECT_NAME}-p1
+    hostname: p1.example
+    command: >
+      run --topology /configs/configs/topology.json
+        --config /configs/configs/config.json
+        --database-path /state
+        --socket-path /state/node.socket
+        --shelley-operational-certificate /configs/keys/opcert.cert
+        --shelley-kes-key /configs/keys/kes.skey
+        --shelley-vrf-key /configs/keys/vrf.skey
+        --port 3001
+        --host-addr 0.0.0.0
+        +RTS -N -A16m -qg -qb -RTS
+    environment:
+      CARDANO_BLOCK_PRODUCER: "true"
+    volumes:
+      - ${ACCEPTANCE_RUNTIME_DIR:?ACCEPTANCE_RUNTIME_DIR must be set}/p1:/configs:ro
+      - p1-state:/state
+
+  p2:
+    <<: *cardano-node
+    container_name: ${COMPOSE_PROJECT_NAME}-p2
+    hostname: p2.example
+    command: >
+      run --topology /configs/configs/topology.json
+        --config /configs/configs/config.json
+        --database-path /state
+        --socket-path /state/node.socket
+        --shelley-operational-certificate /configs/keys/opcert.cert
+        --shelley-kes-key /configs/keys/kes.skey
+        --shelley-vrf-key /configs/keys/vrf.skey
+        --port 3001
+        --host-addr 0.0.0.0
+        +RTS -N -A16m -qg -qb -RTS
+    environment:
+      CARDANO_BLOCK_PRODUCER: "true"
+    volumes:
+      - ${ACCEPTANCE_RUNTIME_DIR}/p2:/configs:ro
+      - p2-state:/state
+
+  p3:
+    <<: *cardano-node
+    container_name: ${COMPOSE_PROJECT_NAME}-p3
+    hostname: p3.example
+    command: >
+      run --topology /configs/configs/topology.json
+        --config /configs/configs/config.json
+        --database-path /state
+        --socket-path /state/node.socket
+        --shelley-operational-certificate /configs/keys/opcert.cert
+        --shelley-kes-key /configs/keys/kes.skey
+        --shelley-vrf-key /configs/keys/vrf.skey
+        --port 3001
+        --host-addr 0.0.0.0
+        +RTS -N -A16m -qg -qb -RTS
+    environment:
+      CARDANO_BLOCK_PRODUCER: "true"
+    volumes:
+      - ${ACCEPTANCE_RUNTIME_DIR}/p3:/configs:ro
+      - p3-state:/state
+
+volumes:
+  p1-state:
+  p2-state:
+  p3-state:
+
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME}-net
+    driver: bridge
